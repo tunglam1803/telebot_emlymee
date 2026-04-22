@@ -1,0 +1,16 @@
+# Tệp môi trường (Chứa Token/Key bảo mật)
+.env
+
+# Tệp cơ sở dữ liệu
+*.db
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv
+venv/
+
+# Deployment
+runtime.txt
+Procfile
