@@ -11,7 +11,7 @@ def get_ai_response(user_input, chat_history=None):
     
     try:
         genai.configure(api_key=api_key)
-        model = genai.GenerativeModel('gemini-3.1-flash-lite')
+        model = genai.GenerativeModel('gemini-3.1-flash-lite-preview')
         
         # System prompt to give context
         prompt = f"Bạn là một trợ lý ảo yêu thích anime trên Telegram. Hãy trả lời câu hỏi sau của người dùng một cách thân thiện: {user_input}"
@@ -30,7 +30,7 @@ def translate_batch(texts):
     
     try:
         genai.configure(api_key=api_key)
-        model = genai.GenerativeModel('gemini-3.1-flash-lite')
+        model = genai.GenerativeModel('gemini-3.1-flash-lite-preview')
         
         # Gộp các đoạn văn bản lại với dấu phân cách rõ ràng
         combined_text = "\n---\n".join(texts)
