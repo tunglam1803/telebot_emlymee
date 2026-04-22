@@ -1,5 +1,8 @@
 import google.generativeai as genai
 import os
+import re
+from datetime import datetime
+import pytz
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -13,8 +16,38 @@ def get_ai_response(user_input, chat_history=None):
         genai.configure(api_key=api_key)
         model = genai.GenerativeModel('gemini-3.1-flash-lite-preview')
         
-        # System prompt to give context
-        prompt = f"Bạn là một trợ lý ảo yêu thích anime trên Telegram. Hãy trả lời câu hỏi sau của người dùng một cách thân thiện: {user_input}"
+        # Lấy ngày giờ hiện tại theo giờ VN
+        vn_tz = pytz.timezone('Asia/Ho_Chi_Minh')
+        now_vn = datetime.now(vn_tz)
+        current_date = now_vn.strftime('%d/%m/%Y')
+        current_time = now_vn.strftime('%H:%M')
+        season_map = {1: "Đông", 2: "Đông", 3: "Đông", 4: "Xuân", 5: "Xuân", 6: "Xuân", 7: "Hè", 8: "Hè", 9: "Hè", 10: "Thu", 11: "Thu", 12: "Thu"}
+        current_season = f"mùa {season_map[now_vn.month]} {now_vn.year}"
+        
+        prompt = f"""## Vai trò
+Bạn là "Em Ly Me" — một trợ lý anime trên Telegram. Bạn là một otaku thực thụ, am hiểu sâu về anime, manga, light novel và văn hóa Nhật Bản.
+
+## Thông tin thời gian
+- Ngày hiện tại: {current_date}
+- Giờ hiện tại: {current_time} (giờ Việt Nam, GMT+7)
+- Mùa anime hiện tại: {current_season}
+- QUAN TRỌNG: Chỉ đề cập anime đang chiếu hoặc sắp chiếu trong năm {now_vn.year}. Nếu không chắc chắn, hãy nói rõ là bạn không có thông tin mới nhất.
+
+## Phong cách trả lời
+- Xưng "tớ", gọi người dùng là "cậu"
+- Thân thiện, vui vẻ, dùng emoji vừa phải (1-3 emoji mỗi tin nhắn)
+- Trả lời NGẮN GỌN vì đây là Telegram, không phải bài viết blog. Tối đa 150 từ trừ khi cần liệt kê danh sách.
+- Dùng từ ngữ tự nhiên của giới trẻ Việt Nam (ví dụ: "cày phim", "hot", "gánh team", "hype")
+- Giữ tên anime bằng tiếng Nhật/Anh gốc, KHÔNG dịch tên phim sang tiếng Việt
+
+## Khả năng
+- Gợi ý anime theo thể loại, tâm trạng, hoặc sở thích
+- So sánh các bộ anime
+- Giải thích cốt truyện, nhân vật
+- Tán gẫu chủ đề anime và ngoài anime đều được
+
+## Câu hỏi của người dùng
+{user_input}"""
         
         response = model.generate_content(prompt)
         return response.text
@@ -32,20 +65,46 @@ def translate_batch(texts):
         genai.configure(api_key=api_key)
         model = genai.GenerativeModel('gemini-3.1-flash-lite-preview')
         
-        # Gộp các đoạn văn bản lại với dấu phân cách rõ ràng
-        combined_text = "\n---\n".join(texts)
-        prompt = f"Hãy dịch danh sách các đoạn tóm tắt anime sau sang tiếng Việt. Giữ nguyên định dạng và phân tách các đoạn bằng dấu '---':\n\n{combined_text}"
+        # Đánh số từng đoạn để AI không bị nhầm lẫn
+        numbered_texts = []
+        for i, text in enumerate(texts, 1):
+            numbered_texts.append(f"[{i}] {text}")
+        combined_text = "\n".join(numbered_texts)
+        
+        prompt = f"""Dịch các đoạn tóm tắt anime dưới đây sang tiếng Việt tự nhiên.
+
+QUY TẮC:
+- Giữ nguyên số thứ tự [{'{số}'}] ở đầu mỗi đoạn
+- Giữ tên riêng (tên nhân vật, địa danh) bằng tiếng gốc
+- Dịch tự nhiên, không dịch máy móc
+- KHÔNG thêm, bớt hoặc gộp đoạn. Có bao nhiêu đoạn đầu vào thì trả về đúng bấy nhiêu đoạn.
+
+NỘI DUNG CẦN DỊCH:
+{combined_text}"""
         
         response = model.generate_content(prompt)
-        translated_results = response.text.split("---")
         
-        # Làm sạch kết quả
-        return [res.strip() for res in translated_results]
+        # Parse kết quả theo số thứ tự
+        result_text = response.text
+        translated = []
+        for i in range(1, len(texts) + 1):
+            # Tìm đoạn text giữa [i] và [i+1] (hoặc cuối chuỗi)
+            if i < len(texts):
+                pattern = rf'\[{i}\]\s*(.*?)(?=\[{i+1}\])'
+            else:
+                pattern = rf'\[{i}\]\s*(.*)'
+            match = re.search(pattern, result_text, re.DOTALL)
+            if match:
+                translated.append(match.group(1).strip())
+            else:
+                # Fallback: giữ nguyên text gốc nếu parse thất bại
+                translated.append(texts[i-1])
+        
+        return translated
     except Exception as e:
         print(f"Batch Translation Error: {e}")
         return texts
-    finally:
-        print("--- Kết thúc hàm dịch ---")
+
 
 if __name__ == "__main__":
     # Test if key is present

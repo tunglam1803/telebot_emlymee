@@ -93,7 +93,6 @@ async def mylist(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     subs = get_user_subscriptions(user_id)
     
-    text = "<b>Danh sách anime bạn đang theo dõi:</b>\n\n"
     if not subs:
         await update.message.reply_text("Bạn chưa đăng ký theo dõi anime nào cả. Hãy dùng /search để tìm phim nhé!")
         return
