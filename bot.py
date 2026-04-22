@@ -3,7 +3,7 @@ import logging
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, CallbackQueryHandler, filters, ContextTypes
 from database import add_user, subscribe_anime, unsubscribe_anime, get_user_subscriptions, get_all_subscriptions_for_day
-from api import search_anime, get_today_schedule
+from api import search_anime, get_today_schedule, get_anime_by_id
 from ai import get_ai_response, translate_batch
 from dotenv import load_dotenv
 
@@ -50,10 +50,20 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if data.startswith("sub_"):
         parts = data.split("_")
         anime_id = int(parts[1])
-        # Re-fetch or use basic title from callback (limited length)
-        # For simplicity, we just save what we have
-        subscribe_anime(query.from_user.id, anime_id, parts[2], "TBA", "TBA")
-        await query.edit_message_caption(caption=query.message.caption + "\n\n✅ Đã đăng ký thành công!")
+        
+        # Lấy thông tin chi tiết để có ngày giờ chiếu chuẩn
+        detail = get_anime_by_id(anime_id)
+        if detail:
+            subscribe_anime(query.from_user.id, anime_id, detail['title'], detail['airing_day'], detail['airing_time'])
+            await query.edit_message_text(text=f"<b>{detail['title']}</b>\n\n✅ Đã đăng ký theo dõi thành công!", parse_mode='HTML')
+        else:
+            await query.edit_message_text(text="Có lỗi xảy ra khi lấy thông tin phim. Thử lại sau nhé!")
+
+    elif data.startswith("unsub_"):
+        parts = data.split("_")
+        anime_id = int(parts[1])
+        unsubscribe_anime(query.from_user.id, anime_id)
+        await query.edit_message_text(text="❌ Đã hủy theo dõi thành công!")
 
 async def today(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Đang lấy và dịch lịch chiếu hôm nay...")
@@ -75,6 +85,21 @@ async def today(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         text = f"📌 <b>{item['title']}</b>\n⏰ Giờ chiếu: {item['time']}\n\n📝 {synopsis_vn}"
         await update.message.reply_text(text=text, parse_mode='HTML')
+
+async def mylist(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    subs = get_user_subscriptions(user_id)
+    
+    text = "<b>Danh sách anime bạn đang theo dõi:</b>\n\n"
+    if not subs:
+        await update.message.reply_text("Bạn chưa đăng ký theo dõi anime nào cả. Hãy dùng /search để tìm phim nhé!")
+        return
+
+    for sub in subs:
+        keyboard = [[InlineKeyboardButton("❌ Hủy theo dõi", callback_data=f"unsub_{sub['anime_id']}")] ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        msg = f"• <b>{sub['anime_title']}</b>\nLịch chiếu: {sub['airing_day']} lúc {sub['airing_time']}"
+        await update.message.reply_text(msg, reply_markup=reply_markup, parse_mode='HTML')
 
 async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text

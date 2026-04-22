@@ -4,7 +4,7 @@ from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, Cal
 from dotenv import load_dotenv
 
 # Import handlers from bot.py
-from bot import start, search, today, chat, button_handler
+from bot import start, search, today, chat, button_handler, mylist
 from database import init_db
 
 load_dotenv()
@@ -24,12 +24,58 @@ def main():
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("today", today))
     application.add_handler(CommandHandler("search", search))
-    application.add_handler(CommandHandler("mylist", start)) # Placeholder for now
+    application.add_handler(CommandHandler("mylist", mylist))
     application.add_handler(CallbackQueryHandler(button_handler))
     
-    # AI Chat handler (non-command messages)
+    # AI Chat handler
     application.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), chat))
     
+    # --- Hệ thống nhắc lịch tự động ---
+    import datetime
+    import pytz
+    from database import get_all_subscriptions_for_day
+
+    async def daily_reminder(context):
+        vn_tz = pytz.timezone('Asia/Ho_Chi_Minh')
+        now_vn = datetime.datetime.now(vn_tz)
+        eng_day = now_vn.strftime('%A') # Monday, Tuesday...
+        
+        # Map sang tiếng Việt để khớp với database
+        day_map = {
+            "Monday": "Thứ Hai", "Tuesday": "Thứ Ba", "Wednesday": "Thứ Tư",
+            "Thursday": "Thứ Năm", "Friday": "Thứ Sáu", "Saturday": "Thứ Bảy",
+            "Sunday": "Chủ Nhật"
+        }
+        vn_day_name = day_map.get(eng_day, eng_day)
+        
+        # Lấy tất cả đăng ký cho ngày hôm nay
+        subs = get_all_subscriptions_for_day(vn_day_name)
+        
+        # Nhóm theo chat_id để gửi 1 tin nhắn tổng hợp cho mỗi người
+        user_reminders = {}
+        for sub in subs:
+            cid = sub['chat_id']
+            if cid not in user_reminders:
+                user_reminders[cid] = []
+            user_reminders[cid].append(sub)
+            
+        for chat_id, anime_list in user_reminders.items():
+            text = f"🔔 <b>Hôm nay ({day_name}) có anime bạn theo dõi nè!</b>\n\n"
+            for anime in anime_list:
+                text += f"• <b>{anime['anime_title']}</b> - Chiếu lúc: {anime['airing_time']}\n"
+            
+            try:
+                await context.bot.send_message(chat_id=chat_id, text=text, parse_mode='HTML')
+            except Exception as e:
+                print(f"Không thể gửi thông báo cho {chat_id}: {e}")
+
+    # Lên lịch chạy lúc 08:00 sáng hàng ngày (Giờ VN)
+    job_queue = application.job_queue
+    job_queue.run_daily(
+        daily_reminder, 
+        time=datetime.time(hour=8, minute=0, tzinfo=pytz.timezone('Asia/Ho_Chi_Minh'))
+    )
+    # ---------------------------------
     # Chạy một server web đơn giản để Render không tắt bot (Dành cho bản Free)
     import threading
     from http.server import BaseHTTPRequestHandler, HTTPServer

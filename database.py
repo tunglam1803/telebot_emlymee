@@ -58,17 +58,19 @@ def unsubscribe_anime(chat_id, anime_id):
 
 def get_user_subscriptions(chat_id):
     conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row  # Cho phép lấy dữ liệu theo tên cột
     cursor = conn.cursor()
     cursor.execute('SELECT anime_id, anime_title, airing_day, airing_time FROM subscriptions WHERE chat_id = ?', (chat_id,))
-    subs = cursor.fetchall()
+    subs = [dict(row) for row in cursor.fetchall()]
     conn.close()
     return subs
 
 def get_all_subscriptions_for_day(day_name):
     conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
     cursor.execute('SELECT chat_id, anime_id, anime_title, airing_time FROM subscriptions WHERE airing_day = ?', (day_name,))
-    subs = cursor.fetchall()
+    subs = [dict(row) for row in cursor.fetchall()]
     conn.close()
     return subs
 
