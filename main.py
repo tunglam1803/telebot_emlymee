@@ -32,6 +32,7 @@ def main():
     
     # --- Hệ thống nhắc lịch tự động ---
     import datetime
+    from datetime import timedelta
     import pytz
     from database import get_all_subscriptions_for_day
 
@@ -60,7 +61,7 @@ def main():
             user_reminders[cid].append(sub)
             
         for chat_id, anime_list in user_reminders.items():
-            text = f"🔔 <b>Hôm nay ({day_name}) có anime bạn theo dõi nè!</b>\n\n"
+            text = f"🔔 <b>Hôm nay ({vn_day_name}) có anime bạn theo dõi nè!</b>\n\n"
             for anime in anime_list:
                 text += f"• <b>{anime['anime_title']}</b> - Chiếu lúc: {anime['airing_time']}\n"
             
@@ -69,11 +70,12 @@ def main():
             except Exception as e:
                 print(f"Không thể gửi thông báo cho {chat_id}: {e}")
 
-    # Lên lịch chạy lúc 08:00 sáng hàng ngày (Giờ VN)
+    # Lên lịch chạy lúc 08:00 sáng hàng ngày (Giờ VN = UTC+7)
+    vn_tz = datetime.timezone(timedelta(hours=7))
     job_queue = application.job_queue
     job_queue.run_daily(
         daily_reminder, 
-        time=datetime.time(hour=8, minute=0, tzinfo=pytz.timezone('Asia/Ho_Chi_Minh'))
+        time=datetime.time(hour=8, minute=0, tzinfo=vn_tz)
     )
     # ---------------------------------
     # Chạy một server web đơn giản để Render không tắt bot (Dành cho bản Free)

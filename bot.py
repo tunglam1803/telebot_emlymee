@@ -1,8 +1,8 @@
 import os
 import logging
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, CallbackQueryHandler, filters, ContextTypes
-from database import add_user, subscribe_anime, unsubscribe_anime, get_user_subscriptions, get_all_subscriptions_for_day
+from telegram.ext import ContextTypes
+from database import add_user, subscribe_anime, unsubscribe_anime, get_user_subscriptions
 from api import search_anime, get_today_schedule, get_anime_by_id
 from ai import get_ai_response, translate_batch
 from dotenv import load_dotenv
@@ -54,8 +54,11 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # Lấy thông tin chi tiết để có ngày giờ chiếu chuẩn
         detail = get_anime_by_id(anime_id)
         if detail:
-            subscribe_anime(query.from_user.id, anime_id, detail['title'], detail['airing_day'], detail['airing_time'])
-            await query.edit_message_text(text=f"<b>{detail['title']}</b>\n\n✅ Đã đăng ký theo dõi thành công!", parse_mode='HTML')
+            is_new = subscribe_anime(query.from_user.id, anime_id, detail['title'], detail['airing_day'], detail['airing_time'])
+            if is_new:
+                await query.edit_message_text(text=f"<b>{detail['title']}</b>\n\n✅ Đã đăng ký theo dõi thành công!", parse_mode='HTML')
+            else:
+                await query.edit_message_text(text=f"<b>{detail['title']}</b>\n\nℹ️ Bạn đã đăng ký phim này rồi nhé!", parse_mode='HTML')
         else:
             await query.edit_message_text(text="Có lỗi xảy ra khi lấy thông tin phim. Thử lại sau nhé!")
 

@@ -14,29 +14,29 @@ def get_today_schedule():
         response.raise_for_status()
         data = response.json()
         
-    anime_list = []
-    for item in data.get('data', []):
-        broadcast = item.get('broadcast', {})
-        jst_time = broadcast.get('time', 'N/A')
-        
-        vn_time = jst_time
-        if jst_time != 'N/A':
-            try:
-                hour, minute = map(int, jst_time.split(':'))
-                hour_vn = (hour - 2) % 24
-                vn_time = f"{hour_vn:02d}:{minute:02d}"
-            except:
-                pass
-        
-        anime_list.append({
-            'id': item.get('mal_id'),
-            'title': item.get('title'),
-            'image': item.get('images', {}).get('jpg', {}).get('large_image_url'),
-            'synopsis': item.get('synopsis'),
-            'time': vn_time,
-            'day': day_name
-        })
-    return anime_list
+        anime_list = []
+        for item in data.get('data', []):
+            broadcast = item.get('broadcast', {})
+            jst_time = broadcast.get('time', 'N/A')
+            
+            vn_time = jst_time
+            if jst_time != 'N/A':
+                try:
+                    hour, minute = map(int, jst_time.split(':'))
+                    hour_vn = (hour - 2) % 24
+                    vn_time = f"{hour_vn:02d}:{minute:02d}"
+                except:
+                    pass
+            
+            anime_list.append({
+                'id': item.get('mal_id'),
+                'title': item.get('title'),
+                'image': item.get('images', {}).get('jpg', {}).get('large_image_url'),
+                'synopsis': item.get('synopsis'),
+                'time': vn_time,
+                'day': day_name
+            })
+        return anime_list
     except Exception as e:
         print(f"Error fetching schedule: {e}")
         return []

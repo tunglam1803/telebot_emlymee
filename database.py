@@ -42,12 +42,18 @@ def add_user(chat_id, username):
 def subscribe_anime(chat_id, anime_id, title, airing_day, airing_time):
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
+    # Kiểm tra đã đăng ký chưa để tránh trùng lặp
+    cursor.execute('SELECT id FROM subscriptions WHERE chat_id = ? AND anime_id = ?', (chat_id, anime_id))
+    if cursor.fetchone():
+        conn.close()
+        return False  # Đã đăng ký rồi
     cursor.execute('''
     INSERT INTO subscriptions (chat_id, anime_id, anime_title, airing_day, airing_time)
     VALUES (?, ?, ?, ?, ?)
     ''', (chat_id, anime_id, title, airing_day, airing_time))
     conn.commit()
     conn.close()
+    return True  # Đăng ký thành công
 
 def unsubscribe_anime(chat_id, anime_id):
     conn = sqlite3.connect(DB_PATH)
