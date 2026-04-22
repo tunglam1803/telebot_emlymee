@@ -19,8 +19,9 @@ def get_ai_response(user_input, chat_history=None):
         response = model.generate_content(prompt)
         return response.text
     except Exception as e:
-        print(f"Error in Gemini API: {e}")
-        return "Đã có lỗi xảy ra khi kết nối với bộ não AI của mình."
+        error_msg = f"Lỗi Gemini: {str(e)}"
+        print(error_msg)
+        return f"Đã có lỗi xảy ra: {error_msg}"
 
 def translate_batch(texts):
     api_key = os.getenv("GEMINI_API_KEY")
