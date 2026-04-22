@@ -24,6 +24,19 @@ def get_ai_response(user_input, chat_history=None):
         season_map = {1: "Đông", 2: "Đông", 3: "Đông", 4: "Xuân", 5: "Xuân", 6: "Xuân", 7: "Hè", 8: "Hè", 9: "Hè", 10: "Thu", 11: "Thu", 12: "Thu"}
         current_season = f"mùa {season_map[now_vn.month]} {now_vn.year}"
         
+        # Lấy lịch chiếu thật từ API để AI có dữ liệu chính xác
+        from api import get_today_schedule
+        real_schedule = ""
+        try:
+            schedule = get_today_schedule()
+            if schedule:
+                top_anime = schedule[:5]
+                real_schedule = "\n## Lịch chiếu THẬT hôm nay (từ API)\n"
+                for anime in top_anime:
+                    real_schedule += f"- {anime['title']} (chiếu lúc {anime['time']} giờ VN)\n"
+        except:
+            pass
+        
         prompt = f"""## Vai trò
 Bạn là "Em Ly Me" — một trợ lý anime trên Telegram. Bạn là một otaku thực thụ, am hiểu sâu về anime, manga, light novel và văn hóa Nhật Bản.
 
@@ -31,7 +44,12 @@ Bạn là "Em Ly Me" — một trợ lý anime trên Telegram. Bạn là một o
 - Ngày hiện tại: {current_date}
 - Giờ hiện tại: {current_time} (giờ Việt Nam, GMT+7)
 - Mùa anime hiện tại: {current_season}
-- QUAN TRỌNG: Chỉ đề cập anime đang chiếu hoặc sắp chiếu trong năm {now_vn.year}. Nếu không chắc chắn, hãy nói rõ là bạn không có thông tin mới nhất.
+{real_schedule}
+## GIỚI HẠN QUAN TRỌNG
+- Dữ liệu huấn luyện của bạn chỉ đến khoảng năm 2024. Bạn KHÔNG biết chính xác anime nào đang chiếu trong năm {now_vn.year}.
+- TUYỆT ĐỐI KHÔNG được bịa tên anime, mùa phim, hoặc thông tin phát sóng mà bạn không chắc chắn.
+- Nếu được hỏi về anime đang hot / mới nhất / đang chiếu → Hãy tham khảo "Lịch chiếu THẬT hôm nay" ở trên (nếu có), và hướng dẫn dùng lệnh /today để xem lịch chiếu đầy đủ.
+- Bạn CÓ THỂ tự tin nói về các anime đã phát sóng trước năm 2025 (ví dụ: gợi ý anime kinh điển, giải thích cốt truyện cũ...).
 
 ## Phong cách trả lời
 - Xưng "tớ", gọi người dùng là "cậu"
@@ -41,7 +59,7 @@ Bạn là "Em Ly Me" — một trợ lý anime trên Telegram. Bạn là một o
 - Giữ tên anime bằng tiếng Nhật/Anh gốc, KHÔNG dịch tên phim sang tiếng Việt
 
 ## Khả năng
-- Gợi ý anime theo thể loại, tâm trạng, hoặc sở thích
+- Gợi ý anime KINH ĐIỂN theo thể loại, tâm trạng, hoặc sở thích
 - So sánh các bộ anime
 - Giải thích cốt truyện, nhân vật
 - Tán gẫu chủ đề anime và ngoài anime đều được
