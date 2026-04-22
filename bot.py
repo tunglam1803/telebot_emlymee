@@ -2,9 +2,9 @@ import os
 import logging
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, CallbackQueryHandler, filters, ContextTypes
-from anime_bot.database import add_user, subscribe_anime, unsubscribe_anime, get_user_subscriptions, get_all_subscriptions_for_day
-from anime_bot.api import search_anime, get_today_schedule
-from anime_bot.ai import get_ai_response, translate_batch
+from database import add_user, subscribe_anime, unsubscribe_anime, get_user_subscriptions, get_all_subscriptions_for_day
+from api import search_anime, get_today_schedule
+from ai import get_ai_response, translate_batch
 from dotenv import load_dotenv
 
 load_dotenv()

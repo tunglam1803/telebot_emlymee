@@ -4,8 +4,8 @@ from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, Cal
 from dotenv import load_dotenv
 
 # Import handlers from bot.py
-from anime_bot.bot import start, search, today, chat, button_handler
-from anime_bot.database import init_db
+from bot import start, search, today, chat, button_handler
+from database import init_db
 
 load_dotenv()
 
@@ -30,6 +30,23 @@ def main():
     # AI Chat handler (non-command messages)
     application.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), chat))
     
+    # Chạy một server web đơn giản để Render không tắt bot (Dành cho bản Free)
+    import threading
+    from http.server import BaseHTTPRequestHandler, HTTPServer
+
+    class HealthCheckHandler(BaseHTTPRequestHandler):
+        def do_GET(self):
+            self.send_response(200)
+            self.end_headers()
+            self.wfile.write(b"Bot is alive!")
+
+    def run_health_check():
+        port = int(os.environ.get("PORT", 8080))
+        httpd = HTTPServer(('0.0.0.0', port), HealthCheckHandler)
+        httpd.serve_forever()
+
+    threading.Thread(target=run_health_check, daemon=True).start()
+
     print("Bot is running...")
     application.run_polling()
 
