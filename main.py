@@ -4,7 +4,7 @@ from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, Cal
 from dotenv import load_dotenv
 
 # Import handlers from bot.py
-from bot import start, search, today, chat, button_handler, mylist, gacha, quiz
+from bot import start, search, today, chat, button_handler, mylist, gacha, quiz, char_search, top_anime, handle_photo
 from database import init_db
 
 load_dotenv()
@@ -27,7 +27,12 @@ def main():
     application.add_handler(CommandHandler("mylist", mylist))
     application.add_handler(CommandHandler("gacha", gacha))
     application.add_handler(CommandHandler("quiz", quiz))
+    application.add_handler(CommandHandler("char", char_search))
+    application.add_handler(CommandHandler("top", top_anime))
     application.add_handler(CallbackQueryHandler(button_handler))
+    
+    # Photo handler (Trace.moe)
+    application.add_handler(MessageHandler(filters.PHOTO, handle_photo))
     
     # AI Chat handler
     application.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), chat))

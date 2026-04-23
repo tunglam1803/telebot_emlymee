@@ -136,6 +136,45 @@ def get_anime_by_id(mal_id):
         print(f"Error fetching anime detail: {e}")
         return None
 
+def search_character(query):
+    url = f"https://api.jikan.moe/v4/characters?q={query}&limit=1"
+    try:
+        response = requests.get(url)
+        response.raise_for_status()
+        data = response.json().get('data', [])
+        if not data: return None
+        
+        char = data[0]
+        return {
+            'name': char.get('name'),
+            'image': char.get('images', {}).get('jpg', {}).get('image_url'),
+            'about': char.get('about', 'Chưa có thông tin.'),
+            'url': char.get('url')
+        }
+    except Exception as e:
+        print(f"Error searching character: {e}")
+        return None
+
+def get_top_anime():
+    # Lấy top anime đang chiếu (airing)
+    url = "https://api.jikan.moe/v4/top/anime?filter=airing&limit=10"
+    try:
+        response = requests.get(url)
+        response.raise_for_status()
+        data = response.json().get('data', [])
+        
+        results = []
+        for item in data:
+            results.append({
+                'title': item.get('title'),
+                'score': item.get('score', 'N/A'),
+                'id': item.get('mal_id')
+            })
+        return results
+    except Exception as e:
+        print(f"Error fetching top anime: {e}")
+        return []
+
 if __name__ == "__main__":
     # Test
     print("Searching for 'One Piece'...")

@@ -3,8 +3,9 @@ import logging
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 from database import add_user, subscribe_anime, unsubscribe_anime, get_user_subscriptions
-from api import search_anime, get_today_schedule, get_anime_by_id, get_random_anime
+from api import search_anime, get_today_schedule, get_anime_by_id, get_random_anime, search_character, get_top_anime
 from ai import get_ai_response, translate_batch, generate_quiz
+import requests
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -23,6 +24,9 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "/mylist - Xem danh sách phim đã đăng ký\n"
         "/gacha - Tìm siêu phẩm ngẫu nhiên để cày\n"
         "/quiz - Thử thách kiến thức Anime\n"
+        "/top - Xem Top 10 anime hot nhất hiện nay\n"
+        "/char <tên> - Tìm thông tin nhân vật\n"
+        "💡 Mẹo: Gửi một tấm ảnh anime cho tớ để tìm tên phim nhé!\n"
         "Hoặc bạn cứ chat bình thường để tán gẫu với mình nhé!"
     )
 
@@ -96,6 +100,83 @@ async def quiz(update: Update, context: ContextTypes.DEFAULT_TYPE):
         correct_option_id=quiz_data['correct_index'],
         explanation=quiz_data['explanation']
     )
+
+async def char_search(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    name = " ".join(context.args)
+    if not name:
+        await update.message.reply_text("Vui lòng nhập tên nhân vật. VD: /char Luffy")
+        return
+        
+    char = search_character(name)
+    if not char:
+        await update.message.reply_text("Hic, tớ không tìm thấy nhân vật nào tên này cả.")
+        return
+        
+    # Dịch thông tin nhân vật bằng AI
+    about_vn = get_ai_response(f"Hãy tóm tắt ngắn gọn (khoảng 100 từ) thông tin nhân vật này bằng tiếng Việt: {char['about']}")
+    
+    text = f"👤 <b>NHÂN VẬT: {char['name']}</b>\n\n{about_vn}\n\n🔗 <a href='{char['url']}'>Xem thêm trên MyAnimeList</a>"
+    
+    if char['image']:
+        await update.message.reply_photo(photo=char['image'], caption=text[:1024], parse_mode='HTML')
+    else:
+        await update.message.reply_text(text, parse_mode='HTML')
+
+async def top_anime(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("🔥 Đang lấy danh sách Top 10 Anime hot nhất mùa này...")
+    top_list = get_top_anime()
+    
+    if not top_list:
+        await update.message.reply_text("Không lấy được danh sách Top. Thử lại sau nhé!")
+        return
+        
+    text = "🏆 <b>TOP 10 ANIME HOT NHẤT HIỆN NAY:</b>\n\n"
+    for i, item in enumerate(top_list, 1):
+        text += f"{i}. <b>{item['title']}</b> - ⭐ {item['score']}\n   /search {item['id']} (Để xem chi tiết)\n\n"
+    
+    await update.message.reply_text(text, parse_mode='HTML')
+
+async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    photo_file = await update.message.photo[-1].get_file()
+    image_url = photo_file.file_path
+    
+    msg = await update.message.reply_text("🔍 Đang truy tìm dấu vết bộ anime này qua ảnh... Chờ tớ xíu!")
+    
+    try:
+        # Gọi API trace.moe
+        response = requests.get(f"https://api.trace.moe/search?url={image_url}")
+        data = response.json()
+        
+        if not data.get('result'):
+            await msg.edit_text("Hic, tớ không tìm thấy phim nào giống ảnh này cả.")
+            return
+            
+        result = data['result'][0]
+        # Trace.moe trả về anilist ID và filename, nhưng thường filename chứa tên phim
+        # Ở đây ta lấy tên từ result['filename'] hoặc result['anilist']
+        # Để đơn giản và chính xác, ta hiển thị kết quả đầu tiên
+        episode = result.get('episode')
+        similarity = result.get('similarity')
+        
+        if similarity < 0.8:
+            await msg.edit_text("Ảnh này mờ quá hoặc không phải anime rồi, tớ không chắc chắn lắm!")
+            return
+
+        # Lấy tên phim từ field anilist (thường là object nếu dùng query, nhưng trace.moe v2 trả về ID)
+        # Ta sẽ dùng title_romaji nếu có
+        title = result.get('filename', 'Unknown Anime')
+        
+        res_text = (
+            f"✅ <b>TÌM THẤY RỒI!</b>\n\n"
+            f"📌 Phim: <b>{title}</b>\n"
+            f"📺 Tập: {episode}\n"
+            f"🎯 Độ chính xác: {similarity*100:.1f}%\n\n"
+            f"<i>Mẹo: Bạn có thể copy tên phim và dùng lệnh /search để đăng ký theo dõi nhé!</i>"
+        )
+        await msg.edit_text(res_text, parse_mode='HTML')
+        
+    except Exception as e:
+        await msg.edit_text(f"Lỗi khi tìm kiếm ảnh: {e}")
 
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
