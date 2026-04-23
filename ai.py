@@ -132,7 +132,9 @@ def generate_quiz():
         genai.configure(api_key=api_key)
         model = genai.GenerativeModel('gemini-3.1-flash-lite-preview')
         
-        prompt = """Bạn là một chuyên gia về Anime (Otaku). Hãy tạo 1 câu hỏi trắc nghiệm ngẫu nhiên về một bộ anime nổi tiếng.
+        prompt = """Bạn là một chuyên gia về Anime (Otaku). Hãy tạo 1 câu hỏi trắc nghiệm ngẫu nhiên về bất kỳ một bộ anime nào mà bạn biết.
+LƯU Ý: Phải đảm bảo tính đa dạng, mỗi lần gọi lệnh hãy cố gắng chọn một bộ anime khác nhau, tuyệt đối không tập trung vào chỉ một vài bộ phim quen thuộc.
+
 Hãy trả về CHỈ MỘT cục JSON (không format code, không bọc ```json) với định dạng chính xác như sau:
 {
     "question": "Nội dung câu hỏi của bạn?",
