@@ -129,22 +129,37 @@ def generate_quiz():
         return None
         
     try:
+        import time
+        import random
+        random_seed = random.randint(1000, 9999)
+        current_time = time.strftime("%H:%M:%S")
+        
         genai.configure(api_key=api_key)
         model = genai.GenerativeModel('gemini-3.1-flash-lite-preview')
         
-        prompt = """Bạn là một chuyên gia về Anime (Otaku). Hãy tạo 1 câu hỏi trắc nghiệm ngẫu nhiên về bất kỳ một bộ anime nào mà bạn biết.
-LƯU Ý: Phải đảm bảo tính đa dạng, mỗi lần gọi lệnh hãy cố gắng chọn một bộ anime khác nhau, tuyệt đối không tập trung vào chỉ một vài bộ phim quen thuộc.
+        prompt = f"""[Hệ thống: Seed={random_seed}, Time={current_time}]
+Bạn là một chuyên gia về Anime (Otaku). Hãy tạo 1 câu hỏi trắc nghiệm ngẫu nhiên về bất kỳ một bộ anime nào.
+YÊU CẦU CỰC KỲ QUAN TRỌNG: 
+1. KHÔNG ĐƯỢC hỏi 2 câu liên tiếp về cùng một bộ phim.
+2. Phải chọn một bộ anime hoàn toàn mới, khác biệt hẳn so với các lần trước.
+3. Hãy lục lại trong kho kiến thức của bạn về hàng ngàn bộ anime từ cũ đến mới để đặt câu hỏi.
 
 Hãy trả về CHỈ MỘT cục JSON (không format code, không bọc ```json) với định dạng chính xác như sau:
-{
-    "question": "Nội dung câu hỏi của bạn?",
+{{
+    "question": "Nội dung câu hỏi?",
     "options": ["Đáp án 1", "Đáp án 2", "Đáp án 3", "Đáp án 4"],
     "correct_index": 0,
     "explanation": "Giải thích ngắn gọn."
-}
-Lưu ý: correct_index là số nguyên từ 0 đến 3."""
+}}"""
 
-        response = model.generate_content(prompt)
+        response = model.generate_content(
+            prompt,
+            generation_config=genai.types.GenerationConfig(
+                temperature=1.0, # Tăng tối đa độ sáng tạo/ngẫu nhiên
+                top_p=0.95,
+                top_k=40
+            )
+        )
         text = response.text.replace('```json', '').replace('```', '').strip()
         import json
         data = json.loads(text)
