@@ -54,6 +54,9 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # Lấy thông tin chi tiết để có ngày giờ chiếu chuẩn
         detail = get_anime_by_id(anime_id)
         if detail:
+            # Đảm bảo user đã có trong database (vì lỡ họ chưa gõ /start từ khi đổi qua Supabase)
+            add_user(query.from_user.id, query.from_user.username)
+            
             is_new = subscribe_anime(query.from_user.id, anime_id, detail['title'], detail['airing_day'], detail['airing_time'])
             if is_new:
                 await query.edit_message_text(text=f"<b>{detail['title']}</b>\n\n✅ Đã đăng ký theo dõi thành công!", parse_mode='HTML')
