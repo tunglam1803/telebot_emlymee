@@ -55,12 +55,37 @@ def search_anime(query):
                 'title': item.get('title'),
                 'image': item.get('images', {}).get('jpg', {}).get('large_image_url'),
                 'airing_day': item.get('broadcast', {}).get('day', 'N/A'),
-                'airing_time': item.get('broadcast', {}).get('time', 'N/A')
+                'airing_time': item.get('broadcast', {}).get('time', 'N/A'),
+                'trailer_url': item.get('trailer', {}).get('url'),
+                'score': item.get('score', 'N/A')
             })
         return results
     except Exception as e:
         print(f"Error searching anime: {e}")
         return []
+
+def get_random_anime():
+    url = "https://api.jikan.moe/v4/random/anime"
+    try:
+        response = requests.get(url)
+        response.raise_for_status()
+        item = response.json().get('data', {})
+        
+        genres = ", ".join([g['name'] for g in item.get('genres', [])])
+        return {
+            'id': item.get('mal_id'),
+            'title': item.get('title'),
+            'image': item.get('images', {}).get('jpg', {}).get('large_image_url'),
+            'score': item.get('score', 'N/A'),
+            'synopsis': item.get('synopsis', 'Chưa có tóm tắt.')[:300] + '...',
+            'episodes': item.get('episodes', '?'),
+            'genres': genres,
+            'trailer_url': item.get('trailer', {}).get('url')
+        }
+    except Exception as e:
+        print(f"Error fetching random anime: {e}")
+        return None
+
 def get_anime_by_id(mal_id):
     url = f"https://api.jikan.moe/v4/anime/{mal_id}"
     try:
@@ -104,7 +129,8 @@ def get_anime_by_id(mal_id):
             'id': item.get('mal_id'),
             'title': item.get('title'),
             'airing_day': day_map.get(vn_day, vn_day),
-            'airing_time': vn_time
+            'airing_time': vn_time,
+            'trailer_url': item.get('trailer', {}).get('url')
         }
     except Exception as e:
         print(f"Error fetching anime detail: {e}")

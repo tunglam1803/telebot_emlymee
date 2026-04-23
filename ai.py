@@ -38,7 +38,7 @@ def get_ai_response(user_input, chat_history=None):
             pass
         
         prompt = f"""## Vai trò
-Bạn là "Em Ly Me" — một trợ lý anime trên Telegram. Bạn là một otaku thực thụ, am hiểu sâu về anime, manga, light novel và văn hóa Nhật Bản.
+Bạn là "Em Ly Mee" — một trợ lý anime trên Telegram. Bạn là một otaku thực thụ, am hiểu sâu về anime, manga, light novel và văn hóa Nhật Bản.
 
 ## Thông tin thời gian
 - Ngày hiện tại: {current_date}
@@ -123,6 +123,33 @@ NỘI DUNG CẦN DỊCH:
         print(f"Batch Translation Error: {e}")
         return texts
 
+def generate_quiz():
+    api_key = os.getenv("GEMINI_API_KEY")
+    if not api_key:
+        return None
+        
+    try:
+        genai.configure(api_key=api_key)
+        model = genai.GenerativeModel('gemini-3.1-flash-lite-preview')
+        
+        prompt = """Bạn là một chuyên gia về Anime (Otaku). Hãy tạo 1 câu hỏi trắc nghiệm ngẫu nhiên về một bộ anime nổi tiếng.
+Hãy trả về CHỈ MỘT cục JSON (không format code, không bọc ```json) với định dạng chính xác như sau:
+{
+    "question": "Nội dung câu hỏi của bạn?",
+    "options": ["Đáp án 1", "Đáp án 2", "Đáp án 3", "Đáp án 4"],
+    "correct_index": 0,
+    "explanation": "Giải thích ngắn gọn."
+}
+Lưu ý: correct_index là số nguyên từ 0 đến 3."""
+
+        response = model.generate_content(prompt)
+        text = response.text.replace('```json', '').replace('```', '').strip()
+        import json
+        data = json.loads(text)
+        return data
+    except Exception as e:
+        print(f"Lỗi AI quiz: {e}")
+        return None
 
 if __name__ == "__main__":
     # Test if key is present

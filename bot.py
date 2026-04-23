@@ -3,8 +3,8 @@ import logging
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 from database import add_user, subscribe_anime, unsubscribe_anime, get_user_subscriptions
-from api import search_anime, get_today_schedule, get_anime_by_id
-from ai import get_ai_response, translate_batch
+from api import search_anime, get_today_schedule, get_anime_by_id, get_random_anime
+from ai import get_ai_response, translate_batch, generate_quiz
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -21,6 +21,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "/today - Xem lịch chiếu hôm nay\n"
         "/search <tên> - Tìm phim để đăng ký nhận thông báo\n"
         "/mylist - Xem danh sách phim đã đăng ký\n"
+        "/gacha - Tìm siêu phẩm ngẫu nhiên để cày\n"
+        "/quiz - Thử thách kiến thức Anime\n"
         "Hoặc bạn cứ chat bình thường để tán gẫu với mình nhé!"
     )
 
@@ -36,11 +38,64 @@ async def search(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     
     for item in results:
-        keyboard = [[InlineKeyboardButton("Đăng ký theo dõi", callback_data=f"sub_{item['id']}_{item['title'][:20]}")] ]
+        # Tạo hàng nút bấm
+        buttons = [InlineKeyboardButton("✅ Đăng ký theo dõi", callback_data=f"sub_{item['id']}_{item['title'][:20]}")]
+        
+        # Nếu có link trailer thì thêm nút Xem Trailer
+        if item.get('trailer_url'):
+            buttons.append(InlineKeyboardButton("📺 Xem Trailer", url=item['trailer_url']))
+            
+        keyboard = [buttons]
         reply_markup = InlineKeyboardMarkup(keyboard)
         
-        text = f"<b>{item['title']}</b>\nLịch chiếu: {item['airing_day']} lúc {item['airing_time']}"
+        score_text = f"⭐ {item['score']}/10" if item['score'] != 'N/A' else "⭐ Chưa có điểm"
+        text = f"<b>{item['title']}</b>\n{score_text}\nLịch chiếu: {item['airing_day']} lúc {item['airing_time']}"
         await update.message.reply_text(text=text, reply_markup=reply_markup, parse_mode='HTML')
+
+async def gacha(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("🎲 Đang quay gacha tìm siêu phẩm cho bạn...")
+    item = get_random_anime()
+    
+    if not item:
+        await update.message.reply_text("Máy gacha đang bị kẹt, thử lại sau nhé!")
+        return
+        
+    buttons = [InlineKeyboardButton("✅ Đăng ký theo dõi", callback_data=f"sub_{item['id']}_{item['title'][:20]}")]
+    if item.get('trailer_url'):
+        buttons.append(InlineKeyboardButton("📺 Xem Trailer", url=item['trailer_url']))
+        
+    reply_markup = InlineKeyboardMarkup([buttons])
+    score_text = f"⭐ {item['score']}/10" if item['score'] != 'N/A' else "⭐ Chưa có điểm"
+    
+    text = (
+        f"🎲 <b>SIÊU PHẨM GACHA CỦA BẠN LÀ:</b>\n\n"
+        f"<b>{item['title']}</b>\n"
+        f"{score_text} | Thể loại: {item['genres']}\n"
+        f"Số tập: {item['episodes']}\n\n"
+        f"<i>{item['synopsis']}</i>"
+    )
+    
+    if item.get('image'):
+        await update.message.reply_photo(photo=item['image'], caption=text[:1024], reply_markup=reply_markup, parse_mode='HTML')
+    else:
+        await update.message.reply_text(text=text, reply_markup=reply_markup, parse_mode='HTML')
+
+async def quiz(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    msg = await update.message.reply_text("🧠 Đang vắt óc nghĩ ra một câu đố anime siêu hóc búa cho bạn đây...")
+    quiz_data = generate_quiz()
+    
+    if not quiz_data:
+        await msg.edit_text("AI đang mệt, không nghĩ ra câu hỏi nào. Bạn thử lại sau nhé!")
+        return
+        
+    await context.bot.send_poll(
+        chat_id=update.effective_chat.id,
+        question=quiz_data['question'],
+        options=quiz_data['options'],
+        type='quiz',
+        correct_option_id=quiz_data['correct_index'],
+        explanation=quiz_data['explanation']
+    )
 
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query

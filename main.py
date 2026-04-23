@@ -4,7 +4,7 @@ from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, Cal
 from dotenv import load_dotenv
 
 # Import handlers from bot.py
-from bot import start, search, today, chat, button_handler, mylist
+from bot import start, search, today, chat, button_handler, mylist, gacha, quiz
 from database import init_db
 
 load_dotenv()
@@ -25,6 +25,8 @@ def main():
     application.add_handler(CommandHandler("today", today))
     application.add_handler(CommandHandler("search", search))
     application.add_handler(CommandHandler("mylist", mylist))
+    application.add_handler(CommandHandler("gacha", gacha))
+    application.add_handler(CommandHandler("quiz", quiz))
     application.add_handler(CallbackQueryHandler(button_handler))
     
     # AI Chat handler
@@ -77,6 +79,58 @@ def main():
         daily_reminder, 
         time=datetime.time(hour=8, minute=0, tzinfo=vn_tz)
     )
+
+    # --- Thông báo TẬP MỚI NGAY LẬP TỨC ---
+    async def check_airing_now(context):
+        vn_tz = pytz.timezone('Asia/Ho_Chi_Minh')
+        now_vn = datetime.datetime.now(vn_tz)
+        eng_day = now_vn.strftime('%A')
+        
+        day_map = {
+            "Monday": "Thứ Hai", "Tuesday": "Thứ Ba", "Wednesday": "Thứ Tư",
+            "Thursday": "Thứ Năm", "Friday": "Thứ Sáu", "Saturday": "Thứ Bảy",
+            "Sunday": "Chủ Nhật"
+        }
+        vn_day_name = day_map.get(eng_day, eng_day)
+        
+        subs = get_all_subscriptions_for_day(vn_day_name)
+        
+        for sub in subs:
+            # sub['airing_time'] có dạng "22:30"
+            try:
+                h, m = map(int, sub['airing_time'].split(':'))
+                air_time = now_vn.replace(hour=h, minute=m, second=0, microsecond=0)
+                
+                # Tính khoảng cách giữa thời gian hiện tại và thời gian chiếu (tính bằng phút)
+                diff = (now_vn - air_time).total_seconds() / 60.0
+                
+                # Nếu phim vừa chiếu trong vòng 10 phút trước -> Gửi thông báo!
+                if 0 <= diff < 10:
+                    chat_id = sub['chat_id']
+                    text = f"🔥 <b>CÓ TẬP MỚI!</b>\n\nPhim <b>{sub['anime_title']}</b> vừa mới lên sóng rồi nè cậu ơi. Lấy bắp rang ra xem thôi! 🍿🏃‍♂️"
+                    
+                    # Nếu có link trailer thì gắn thêm vào cho nó xịn
+                    from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+                    from api import get_anime_by_id
+                    
+                    reply_markup = None
+                    try:
+                        detail = get_anime_by_id(sub['anime_id'])
+                        if detail and detail.get('trailer_url'):
+                            reply_markup = InlineKeyboardMarkup([[
+                                InlineKeyboardButton("📺 Xem Trailer (Trong lúc chờ Vietsub)", url=detail['trailer_url'])
+                            ]])
+                    except:
+                        pass
+
+                    await context.bot.send_message(chat_id=chat_id, text=text, reply_markup=reply_markup, parse_mode='HTML')
+            except Exception as e:
+                print(f"Lỗi khi check lịch: {e}")
+                pass
+
+    # Lên lịch quét liên tục cứ mỗi 10 phút (600 giây)
+    job_queue.run_repeating(check_airing_now, interval=600, first=10)
+
     # ---------------------------------
     # Chạy một server web đơn giản để Render không tắt bot (Dành cho bản Free)
     import threading
