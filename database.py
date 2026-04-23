@@ -1,16 +1,26 @@
-import sqlite3
+import psycopg2
+from psycopg2.extras import RealDictCursor
 import os
+from dotenv import load_dotenv
 
-DB_PATH = os.path.join(os.path.dirname(__file__), 'anime_bot.db')
+load_dotenv()
+
+def get_connection():
+    db_url = os.getenv("DATABASE_URL")
+    if not db_url:
+        print("CẢNH BÁO: Chưa có DATABASE_URL trong file .env!")
+        return None
+    return psycopg2.connect(db_url)
 
 def init_db():
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_connection()
+    if not conn: return
     cursor = conn.cursor()
     
     # Table for users
     cursor.execute('''
     CREATE TABLE IF NOT EXISTS users (
-        chat_id INTEGER PRIMARY KEY,
+        chat_id BIGINT PRIMARY KEY,
         username TEXT,
         summary_enabled INTEGER DEFAULT 1
     )
@@ -19,67 +29,83 @@ def init_db():
     # Table for subscriptions
     cursor.execute('''
     CREATE TABLE IF NOT EXISTS subscriptions (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        chat_id INTEGER,
+        id SERIAL PRIMARY KEY,
+        chat_id BIGINT,
         anime_id INTEGER,
         anime_title TEXT,
         airing_day TEXT,
         airing_time TEXT,
-        FOREIGN KEY(chat_id) REFERENCES users(chat_id)
+        FOREIGN KEY(chat_id) REFERENCES users(chat_id) ON DELETE CASCADE
     )
     ''')
     
     conn.commit()
+    cursor.close()
     conn.close()
 
 def add_user(chat_id, username):
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_connection()
+    if not conn: return
     cursor = conn.cursor()
-    cursor.execute('INSERT OR IGNORE INTO users (chat_id, username) VALUES (?, ?)', (chat_id, username))
+    cursor.execute('''
+        INSERT INTO users (chat_id, username) 
+        VALUES (%s, %s) 
+        ON CONFLICT (chat_id) DO NOTHING
+    ''', (chat_id, username))
     conn.commit()
+    cursor.close()
     conn.close()
 
 def subscribe_anime(chat_id, anime_id, title, airing_day, airing_time):
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_connection()
+    if not conn: return False
     cursor = conn.cursor()
+    
     # Kiểm tra đã đăng ký chưa để tránh trùng lặp
-    cursor.execute('SELECT id FROM subscriptions WHERE chat_id = ? AND anime_id = ?', (chat_id, anime_id))
+    cursor.execute('SELECT id FROM subscriptions WHERE chat_id = %s AND anime_id = %s', (chat_id, anime_id))
     if cursor.fetchone():
+        cursor.close()
         conn.close()
         return False  # Đã đăng ký rồi
+        
     cursor.execute('''
     INSERT INTO subscriptions (chat_id, anime_id, anime_title, airing_day, airing_time)
-    VALUES (?, ?, ?, ?, ?)
+    VALUES (%s, %s, %s, %s, %s)
     ''', (chat_id, anime_id, title, airing_day, airing_time))
     conn.commit()
+    cursor.close()
     conn.close()
     return True  # Đăng ký thành công
 
 def unsubscribe_anime(chat_id, anime_id):
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_connection()
+    if not conn: return
     cursor = conn.cursor()
-    cursor.execute('DELETE FROM subscriptions WHERE chat_id = ? AND anime_id = ?', (chat_id, anime_id))
+    cursor.execute('DELETE FROM subscriptions WHERE chat_id = %s AND anime_id = %s', (chat_id, anime_id))
     conn.commit()
+    cursor.close()
     conn.close()
 
 def get_user_subscriptions(chat_id):
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row  # Cho phép lấy dữ liệu theo tên cột
-    cursor = conn.cursor()
-    cursor.execute('SELECT anime_id, anime_title, airing_day, airing_time FROM subscriptions WHERE chat_id = ?', (chat_id,))
-    subs = [dict(row) for row in cursor.fetchall()]
+    conn = get_connection()
+    if not conn: return []
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
+    cursor.execute('SELECT anime_id, anime_title, airing_day, airing_time FROM subscriptions WHERE chat_id = %s', (chat_id,))
+    subs = cursor.fetchall()
+    cursor.close()
     conn.close()
     return subs
 
 def get_all_subscriptions_for_day(day_name):
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    cursor = conn.cursor()
-    cursor.execute('SELECT chat_id, anime_id, anime_title, airing_time FROM subscriptions WHERE airing_day = ?', (day_name,))
-    subs = [dict(row) for row in cursor.fetchall()]
+    conn = get_connection()
+    if not conn: return []
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
+    cursor.execute('SELECT chat_id, anime_id, anime_title, airing_time FROM subscriptions WHERE airing_day = %s', (day_name,))
+    subs = cursor.fetchall()
+    cursor.close()
     conn.close()
     return subs
 
 if __name__ == "__main__":
     init_db()
-    print("Database initialized successfully.")
+    print("Database initialized successfully with Supabase PostgreSQL.")
