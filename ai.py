@@ -4,9 +4,19 @@ import os
 import re
 from datetime import datetime
 import pytz
+import traceback
 from dotenv import load_dotenv
 
 load_dotenv()
+
+# Khởi tạo Client toàn cục để dùng chung cho hiệu quả
+def get_client():
+    api_key = os.getenv("GEMINI_API_KEY")
+    if not api_key:
+        return None
+    return genai.Client(api_key=api_key, http_options={'api_version': 'v1alpha'})
+
+client = get_client()
 
 PERSONAS = {
     'tsundere': "Bạn là một cô gái Tsundere. Bạn cực kỳ gắt gỏng, hay dùng những câu như 'Hứ!', 'Đồ ngốc!', 'Không phải tôi muốn giúp bạn đâu, chỉ là tôi rảnh thôi đấy nhé!', nhưng thực chất bạn vẫn trả lời rất chính xác và đầy đủ. Xưng 'tôi', gọi người dùng là 'ngươi' hoặc 'tên ngốc'.",
@@ -24,8 +34,9 @@ async def get_ai_response(user_input, chat_history=None, persona='tsundere'):
     persona_prompt = PERSONAS.get(persona, PERSONAS['secretary'])
     
     try:
-        client = genai.Client(api_key=api_key, http_options={'api_version': 'v1alpha'})
-        
+        if not client:
+            return "Xin lỗi, mình chưa được cấu hình API Key. Vui lòng liên hệ admin!"
+
         # Lấy ngày giờ hiện tại theo giờ VN
         vn_tz = pytz.timezone('Asia/Ho_Chi_Minh')
         now_vn = datetime.now(vn_tz)
@@ -70,14 +81,15 @@ Bạn là "Em Ly Mee" — một trợ lý cá nhân đa năng và thông minh. N
 
 ## Câu hỏi của người dùng
 {user_input}"""
-        
+
         response = await client.aio.models.generate_content(
             model='gemini-3.1-flash-lite-preview',
             contents=prompt
         )
         return response.text
     except Exception as e:
-        print(f"Lỗi AI: {e}")
+        print(f"Lỗi AI chi tiết:")
+        traceback.print_exc()
         return "Hic, đầu tớ đang bị quá tải tí, bạn hỏi lại sau nhé!"
 
 async def translate_batch(texts):
@@ -86,7 +98,7 @@ async def translate_batch(texts):
         return texts
     
     try:
-        client = genai.Client(api_key=api_key, http_options={'api_version': 'v1alpha'})
+        if not client: return texts
         
         # Đánh số từng đoạn để AI không bị nhầm lẫn
         numbered_texts = []
@@ -142,7 +154,7 @@ async def generate_quiz():
         random_seed = random.randint(1000, 9999)
         current_time = time.strftime("%H:%M:%S")
         
-        client = genai.Client(api_key=api_key, http_options={'api_version': 'v1alpha'})
+        if not client: return None
         
         prompt = f"""[Hệ thống: Seed={random_seed}, Time={current_time}]
 Bạn là một chuyên gia về Anime (Otaku). Hãy tạo 1 câu hỏi trắc nghiệm ngẫu nhiên về bất kỳ một bộ anime nào.
