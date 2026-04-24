@@ -176,7 +176,7 @@ async def smart_concierge_task(application):
                 text = f"☕ **BẢN TIN QUẢN GIA SÁNG NAY**\n\n{briefing}"
                 
                 try:
-                    if platform == 'telegram':
+                    if platform == 'telegram' and application:
                         await application.bot.send_message(chat_id=chat_id, text=text, parse_mode='Markdown')
                     elif platform == 'discord':
                         user = await discord_bot.fetch_user(chat_id)
@@ -243,11 +243,13 @@ async def main():
     else:
         print("Bỏ qua Telegram Bot (Token thiếu)")
 
+    # Khởi động nhiệm vụ Quản gia (Sử dụng application của Telegram nếu có)
+    tg_app = application if 'application' in locals() else None
+    asyncio.create_task(smart_concierge_task(tg_app))
+
     # Setup Discord
     if ds_token and ds_token != "your_discord_token_here":
         print("Discord Bot is starting...")
-        if tg_token and tg_token != "your_telegram_token_here":
-             asyncio.create_task(smart_concierge_task(application))
         tasks.append(discord_bot.start(ds_token))
     else:
         print("Bỏ qua Discord Bot (Token thiếu)")
@@ -255,11 +257,9 @@ async def main():
     if tasks:
         await asyncio.gather(*tasks)
     else:
-        # Nếu chỉ có Telegram chạy
-        if tg_token and tg_token != "your_telegram_token_here":
-            asyncio.create_task(smart_concierge_task(application))
-            while True:
-                await asyncio.sleep(3600)
+        # Nếu chỉ có Telegram chạy, ta cần loop vô tận để bot không thoát
+        while True:
+            await asyncio.sleep(3600)
 
 if __name__ == "__main__":
     try:

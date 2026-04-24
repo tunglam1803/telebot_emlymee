@@ -24,7 +24,7 @@ async def get_ai_response(user_input, chat_history=None, persona='tsundere'):
     persona_prompt = PERSONAS.get(persona, PERSONAS['secretary'])
     
     try:
-        client = genai.Client(api_key=api_key)
+        client = genai.Client(api_key=api_key, http_options={'api_version': 'v1alpha'})
         
         # Lấy ngày giờ hiện tại theo giờ VN
         vn_tz = pytz.timezone('Asia/Ho_Chi_Minh')
@@ -71,7 +71,7 @@ Bạn là "Em Ly Mee" — một trợ lý cá nhân đa năng và thông minh. N
 ## Câu hỏi của người dùng
 {user_input}"""
         
-        response = await client.models.generate_content(
+        response = await client.aio.models.generate_content(
             model='gemini-3.1-flash-lite-preview',
             contents=prompt
         )
@@ -86,7 +86,7 @@ async def translate_batch(texts):
         return texts
     
     try:
-        client = genai.Client(api_key=api_key)
+        client = genai.Client(api_key=api_key, http_options={'api_version': 'v1alpha'})
         
         # Đánh số từng đoạn để AI không bị nhầm lẫn
         numbered_texts = []
@@ -105,7 +105,7 @@ QUY TẮC:
 NỘI DUNG CẦN DỊCH:
 {combined_text}"""
         
-        response = await client.models.generate_content(
+        response = await client.aio.models.generate_content(
             model='gemini-3.1-flash-lite-preview',
             contents=prompt
         )
@@ -142,7 +142,7 @@ async def generate_quiz():
         random_seed = random.randint(1000, 9999)
         current_time = time.strftime("%H:%M:%S")
         
-        client = genai.Client(api_key=api_key)
+        client = genai.Client(api_key=api_key, http_options={'api_version': 'v1alpha'})
         
         prompt = f"""[Hệ thống: Seed={random_seed}, Time={current_time}]
 Bạn là một chuyên gia về Anime (Otaku). Hãy tạo 1 câu hỏi trắc nghiệm ngẫu nhiên về bất kỳ một bộ anime nào.
@@ -159,7 +159,7 @@ Hãy trả về CHỈ MỘT cục JSON (không format code, không bọc ```json
     "explanation": "Giải thích ngắn gọn."
 }}"""
 
-        response = await client.models.generate_content(
+        response = await client.aio.models.generate_content(
             model='gemini-3.1-flash-lite-preview',
             contents=prompt,
             config=types.GenerateContentConfig(
