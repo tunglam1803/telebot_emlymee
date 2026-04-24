@@ -1,7 +1,9 @@
 import os
 import discord
+from discord import Embed, ui, app_commands
 from discord.ext import commands
-from discord import Embed, ui
+import yt_dlp
+import asyncio
 from database import add_discord_user, subscribe_discord_anime, unsubscribe_discord_anime, get_discord_user_subscriptions, set_user_persona, get_user_persona, add_user_interest, remove_user_interest, get_user_interests
 from api import search_anime, get_today_schedule, get_anime_by_id, get_random_anime, search_character, get_top_anime
 from ai import get_ai_response, translate_batch, generate_quiz, PERSONAS
@@ -12,6 +14,42 @@ load_dotenv()
 
 intents = discord.Intents.default()
 intents.message_content = True
+# Cấu hình YouTube DL & FFmpeg
+YDL_OPTIONS = {
+    'format': 'bestaudio/best',
+    'noplaylist': True,
+    'quiet': True,
+    'postprocessors': [{
+        'key': 'FFmpegExtractAudio',
+        'preferredcodec': 'mp3',
+        'preferredquality': '192',
+    }],
+}
+FFMPEG_OPTIONS = {
+    'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
+    'options': '-vn'
+}
+
+ytdl = yt_dlp.YoutubeDL(YDL_OPTIONS)
+
+class YTDLSource(discord.PCMVolumeTransformer):
+    def __init__(self, source, *, data, volume=0.5):
+        super().__init__(source, volume)
+        self.data = data
+        self.title = data.get('title')
+        self.url = data.get('url')
+
+    @classmethod
+    async def from_url(cls, url, *, loop=None, stream=False):
+        loop = loop or asyncio.get_event_loop()
+        data = await loop.run_in_executor(None, lambda: ytdl.extract_info(url, download=not stream))
+        
+        if 'entries' in data:
+            data = data['entries'][0]
+
+        filename = data['url'] if stream else ytdl.prepare_filename(data)
+        return cls(discord.FFmpegPCMAudio(filename, **FFMPEG_OPTIONS), data=data)
+
 bot = commands.Bot(command_prefix='!', intents=intents)
 
 class AnimeSearchView(ui.View):
@@ -90,21 +128,6 @@ async def search(interaction: discord.Interaction, query: str):
         await interaction.followup.send("Không tìm thấy anime nào với tên đó.")
         return
     
-    for item in results[:5]:
-        score_text = f"⭐ {item['score']}/10" if item['score'] != 'N/A' else "⭐ Chưa có điểm"
-        embed = Embed(
-            title=item['title'],
-            description=f"{score_text}\nLịch chiếu: {item['airing_day']} lúc {item['airing_time']}",
-            color=discord.Color.green()
-        )
-        if item.get('image'):
-            embed.set_thumbnail(url=item['image'])
-        view = AnimeSearchView(item['id'], item['title'], item['airing_day'], item['airing_time'], item.get('trailer_url'))
-        await interaction.followup.send(embed=embed, view=view)
-    if not results:
-        await ctx.send("Không tìm thấy anime nào với tên đó.")
-        return
-    
     for item in results[:5]:  # Giới hạn 5 kết quả đầu tiên
         score_text = f"⭐ {item['score']}/10" if item['score'] != 'N/A' else "⭐ Chưa có điểm"
         
@@ -117,7 +140,7 @@ async def search(interaction: discord.Interaction, query: str):
             embed.set_thumbnail(url=item['image'])
             
         view = AnimeSearchView(item['id'], item['title'], item['airing_day'], item['airing_time'], item.get('trailer_url'))
-        await ctx.send(embed=embed, view=view)
+        await interaction.followup.send(embed=embed, view=view)
 
 @bot.tree.command(name="today", description="Xem lịch chiếu anime hôm nay")
 async def today(interaction: discord.Interaction):
@@ -276,6 +299,66 @@ async def artist(interaction: discord.Interaction, name: str):
 async def unfollow(interaction: discord.Interaction, topic: str):
     remove_user_interest(interaction.user.id, 'discord', topic)
     await interaction.response.send_message(f"❌ Đã xóa **{topic}** khỏi danh sách theo dõi.")
+
+@bot.tree.command(name="join", description="Mời bot vào kênh thoại của bạn")
+async def join(interaction: discord.Interaction):
+    if interaction.user.voice:
+        channel = interaction.user.voice.channel
+        await channel.connect()
+        await interaction.response.send_message(f"✅ Đã kết nối vào kênh `{channel.name}`")
+    else:
+        await interaction.response.send_message("❌ Bạn cần vào một kênh thoại trước!")
+
+@bot.tree.command(name="leave", description="Đuổi bot khỏi kênh thoại")
+async def leave(interaction: discord.Interaction):
+    if interaction.guild.voice_client:
+        await interaction.guild.voice_client.disconnect()
+        await interaction.response.send_message("👋 Tạm biệt, tớ đi đây!")
+    else:
+        await interaction.response.send_message("❌ Tớ có ở trong kênh nào đâu?")
+
+@bot.tree.command(name="play", description="Phát nhạc từ YouTube (tên bài hát hoặc link)")
+async def play(interaction: discord.Interaction, search: str):
+    await interaction.response.defer()
+    
+    # Kiểm tra voice
+    if not interaction.user.voice:
+        await interaction.followup.send("❌ Bạn cần vào một kênh thoại trước!")
+        return
+
+    if not interaction.guild.voice_client:
+        await interaction.user.voice.channel.connect()
+
+    voice_client = interaction.guild.voice_client
+
+    try:
+        # Tìm kiếm và lấy thông tin
+        if not search.startswith("http"):
+            search = f"ytsearch:{search}"
+            
+        player = await YTDLSource.from_url(search, loop=bot.loop, stream=True)
+        
+        if voice_client.is_playing():
+            voice_client.stop()
+            
+        voice_client.play(player, after=lambda e: print(f'Player error: {e}') if e else None)
+        
+        embed = Embed(
+            title="🎵 Đang phát nhạc",
+            description=f"**{player.title}**\nNgười yêu cầu: {interaction.user.mention}",
+            color=discord.Color.red()
+        )
+        await interaction.followup.send(embed=embed)
+    except Exception as e:
+        await interaction.followup.send(f"❌ Có lỗi xảy ra: {e}")
+
+@bot.tree.command(name="stop", description="Dừng phát nhạc")
+async def stop(interaction: discord.Interaction):
+    if interaction.guild.voice_client and interaction.guild.voice_client.is_playing():
+        interaction.guild.voice_client.stop()
+        await interaction.response.send_message("⏹️ Đã dừng phát nhạc.")
+    else:
+        await interaction.response.send_message("❌ Hiện tại không có nhạc nào đang phát.")
 
 @bot.event
 async def on_message(message):
