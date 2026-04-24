@@ -2,9 +2,9 @@ import os
 import logging
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
-from database import add_user, subscribe_anime, unsubscribe_anime, get_user_subscriptions
+from database import add_user, subscribe_anime, unsubscribe_anime, get_user_subscriptions, set_user_persona, get_user_persona, add_user_interest, remove_user_interest, get_user_interests
 from api import search_anime, get_today_schedule, get_anime_by_id, get_random_anime, search_character, get_top_anime
-from ai import get_ai_response, translate_batch, generate_quiz
+from ai import get_ai_response, translate_batch, generate_quiz, PERSONAS
 import requests
 from dotenv import load_dotenv
 
@@ -243,8 +243,64 @@ async def mylist(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(msg, reply_markup=reply_markup, parse_mode='HTML')
 
 async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    persona_name = get_user_persona(user_id, 'telegram')
     text = update.message.text
-    response = get_ai_response(text)
+    response = get_ai_response(text, persona=persona_name)
     await update.message.reply_text(response)
+
+async def persona(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    available = ", ".join(f"`{p}`" for p in PERSONAS.keys())
+    
+    if not context.args:
+        current = get_user_persona(user_id, 'telegram')
+        await update.message.reply_text(f"🎭 Nhân cách hiện tại của tớ là: `{current}`\nCác nhân cách có sẵn: {available}\nDùng /persona <tên> để đổi nhé!", parse_mode='Markdown')
+        return
+    
+    name = context.args[0].lower()
+    if name in PERSONAS:
+        set_user_persona(user_id, 'telegram', name)
+        await update.message.reply_text(f"✅ Đã đổi nhân cách sang: `{name}`. Từ giờ tớ sẽ nói chuyện kiểu này nhé!")
+    else:
+        await update.message.reply_text(f"❌ Không tìm thấy nhân cách đó. Hãy chọn: {available}", parse_mode='Markdown')
+
+async def follow(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    topic = " ".join(context.args)
+    
+    if not topic:
+        interests = get_user_interests(user_id, 'telegram')
+        if not interests:
+            await update.message.reply_text("Bạn chưa theo dõi chủ đề nào. Dùng /follow <tên chủ đề> nhé!")
+        else:
+            list_text = "\n".join([f"• {i['topic_name']} ({i['topic_type']})" for i in interests])
+            await update.message.reply_text(f"🔔 **Các chủ đề bạn đang theo dõi:**\n{list_text}", parse_mode='Markdown')
+        return
+    
+    add_user_interest(user_id, 'telegram', 'general', topic)
+    await update.message.reply_text(f"✅ Đã thêm **{topic}** vào danh sách theo dõi của bạn!", parse_mode='Markdown')
+
+async def artist(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    name = " ".join(context.args)
+    
+    if not name:
+        await update.message.reply_text("Vui lòng nhập tên ca sĩ. VD: /artist Sơn Tùng M-TP")
+        return
+    
+    add_user_interest(user_id, 'telegram', 'artist', name)
+    await update.message.reply_text(f"✅ Đã thêm ca sĩ **{name}** vào danh sách theo dõi của bạn!", parse_mode='Markdown')
+
+async def unfollow(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    topic = " ".join(context.args)
+    
+    if not topic:
+        await update.message.reply_text("Vui lòng nhập tên chủ đề cần hủy theo dõi.")
+        return
+    
+    remove_user_interest(user_id, 'telegram', topic)
+    await update.message.reply_text(f"❌ Đã xóa **{topic}** khỏi danh sách theo dõi.")
 
 # Note: Scheduler logic will be in main.py or a separate handler
