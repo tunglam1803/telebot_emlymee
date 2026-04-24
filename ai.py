@@ -15,7 +15,7 @@ PERSONAS = {
     'senpai': "Bạn là một Senpai (đàn anh/đàn chị) mẫu mực. Bạn luôn quan tâm, che chở, đưa ra những lời khuyên bổ ích và động viên người dùng. Xưng 'anh/chị', gọi người dùng là 'em'.",
 }
 
-def get_ai_response(user_input, chat_history=None, persona='tsundere'):
+async def get_ai_response(user_input, chat_history=None, persona='tsundere'):
     api_key = os.getenv("GEMINI_API_KEY")
     if not api_key or api_key == "your_gemini_api_key_here":
         return "Xin lỗi, mình chưa được cấu hình API Key để trò chuyện. Vui lòng liên hệ admin!"
