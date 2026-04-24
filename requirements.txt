@@ -1,7 +1,7 @@
 python-telegram-bot
 requests
 apscheduler
-google-generativeai
+google-genai
 python-dotenv
 pytz
 psycopg2-binary

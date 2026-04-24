@@ -1,4 +1,5 @@
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 import os
 import re
 from datetime import datetime
@@ -23,16 +24,12 @@ async def get_ai_response(user_input, chat_history=None, persona='tsundere'):
     persona_prompt = PERSONAS.get(persona, PERSONAS['secretary'])
     
     try:
-        genai.configure(api_key=api_key)
-        model = genai.GenerativeModel('gemini-3.1-flash-lite-preview')
+        client = genai.Client(api_key=api_key)
         
         # Lấy ngày giờ hiện tại theo giờ VN
         vn_tz = pytz.timezone('Asia/Ho_Chi_Minh')
         now_vn = datetime.now(vn_tz)
         current_date = now_vn.strftime('%d/%m/%Y')
-        current_time = now_vn.strftime('%H:%M')
-        season_map = {1: "Đông", 2: "Đông", 3: "Đông", 4: "Xuân", 5: "Xuân", 6: "Xuân", 7: "Hè", 8: "Hè", 9: "Hè", 10: "Thu", 11: "Thu", 12: "Thu"}
-        current_season = f"mùa {season_map[now_vn.month]} {now_vn.year}"
         
         # Lấy lịch chiếu thật từ API để AI có dữ liệu chính xác
         from api import get_today_schedule
@@ -74,7 +71,10 @@ Bạn là "Em Ly Mee" — một trợ lý cá nhân đa năng và thông minh. N
 ## Câu hỏi của người dùng
 {user_input}"""
         
-        response = await model.generate_content_async(prompt)
+        response = await client.models.generate_content(
+            model='gemini-3.1-flash-lite-preview',
+            contents=prompt
+        )
         return response.text
     except Exception as e:
         print(f"Lỗi AI: {e}")
@@ -86,8 +86,7 @@ async def translate_batch(texts):
         return texts
     
     try:
-        genai.configure(api_key=api_key)
-        model = genai.GenerativeModel('gemini-3.1-flash-lite-preview')
+        client = genai.Client(api_key=api_key)
         
         # Đánh số từng đoạn để AI không bị nhầm lẫn
         numbered_texts = []
@@ -106,7 +105,10 @@ QUY TẮC:
 NỘI DUNG CẦN DỊCH:
 {combined_text}"""
         
-        response = await model.generate_content_async(prompt)
+        response = await client.models.generate_content(
+            model='gemini-3.1-flash-lite-preview',
+            contents=prompt
+        )
         
         # Parse kết quả theo số thứ tự
         result_text = response.text
@@ -140,8 +142,7 @@ async def generate_quiz():
         random_seed = random.randint(1000, 9999)
         current_time = time.strftime("%H:%M:%S")
         
-        genai.configure(api_key=api_key)
-        model = genai.GenerativeModel('gemini-3.1-flash-lite-preview')
+        client = genai.Client(api_key=api_key)
         
         prompt = f"""[Hệ thống: Seed={random_seed}, Time={current_time}]
 Bạn là một chuyên gia về Anime (Otaku). Hãy tạo 1 câu hỏi trắc nghiệm ngẫu nhiên về bất kỳ một bộ anime nào.
@@ -158,10 +159,11 @@ Hãy trả về CHỈ MỘT cục JSON (không format code, không bọc ```json
     "explanation": "Giải thích ngắn gọn."
 }}"""
 
-        response = await model.generate_content_async(
-            prompt,
-            generation_config=genai.types.GenerationConfig(
-                temperature=1.0, # Tăng tối đa độ sáng tạo/ngẫu nhiên
+        response = await client.models.generate_content(
+            model='gemini-3.1-flash-lite-preview',
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                temperature=1.0,
                 top_p=0.95,
                 top_k=40
             )
