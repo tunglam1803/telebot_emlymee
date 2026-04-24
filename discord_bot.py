@@ -86,6 +86,48 @@ class UnsubscribeView(ui.View):
         # Optionally delete or update the message
         await interaction.message.delete()
 
+class QuizView(ui.View):
+    def __init__(self, quiz_data):
+        super().__init__(timeout=60) # Câu hỏi có hiệu lực trong 60 giây
+        self.quiz_data = quiz_data
+        self.correct_index = quiz_data['correct_index']
+        
+    async def check_answer(self, interaction: discord.Interaction, index: int):
+        # Vô hiệu hóa tất cả các nút sau khi trả lời
+        for child in self.children:
+            child.disabled = True
+        
+        if index == self.correct_index:
+            color = discord.Color.green()
+            result_text = "✅ **CHÍNH XÁC!** Bạn giỏi quá đi!"
+        else:
+            correct_label = chr(65 + self.correct_index)
+            color = discord.Color.red()
+            result_text = f"❌ **SAI RỒI!** Đáp án đúng phải là **{correct_label}** mới đúng."
+            
+        embed = Embed(
+            title="🧠 KẾT QUẢ CÂU ĐỐ",
+            description=f"{result_text}\n\n💡 **Giải thích:** {self.quiz_data['explanation']}",
+            color=color
+        )
+        await interaction.response.edit_message(embed=embed, view=self)
+
+    @ui.button(label="A", style=discord.ButtonStyle.blurple)
+    async def opt_a(self, interaction: discord.Interaction, button: ui.Button):
+        await self.check_answer(interaction, 0)
+
+    @ui.button(label="B", style=discord.ButtonStyle.blurple)
+    async def opt_b(self, interaction: discord.Interaction, button: ui.Button):
+        await self.check_answer(interaction, 1)
+
+    @ui.button(label="C", style=discord.ButtonStyle.blurple)
+    async def opt_c(self, interaction: discord.Interaction, button: ui.Button):
+        await self.check_answer(interaction, 2)
+
+    @ui.button(label="D", style=discord.ButtonStyle.blurple)
+    async def opt_d(self, interaction: discord.Interaction, button: ui.Button):
+        await self.check_answer(interaction, 3)
+
 @bot.event
 async def on_ready():
     print(f'Discord Bot logged in as {bot.user}')
@@ -216,13 +258,14 @@ async def quiz(interaction: discord.Interaction):
         await interaction.edit_original_response(content="AI đang mệt, không nghĩ ra câu hỏi nào. Bạn thử lại sau nhé!")
         return
         
-    options_text = "\n".join([f"{chr(65+i)}. {opt}" for i, opt in enumerate(quiz_data['options'])])
+    options_text = "\n".join([f"**{chr(65+i)}.** {opt}" for i, opt in enumerate(quiz_data['options'])])
     embed = Embed(
         title="🧠 THỬ THÁCH KIẾN THỨC ANIME",
-        description=f"**{quiz_data['question']}**\n\n{options_text}\n\n*Gợi ý: Trả lời bằng cách chọn đúng chữ cái!*",
+        description=f"### {quiz_data['question']}\n\n{options_text}\n\n*Hãy chọn đáp án đúng bên dưới!*",
         color=discord.Color.purple()
     )
-    await interaction.edit_original_response(content=None, embed=embed)
+    view = QuizView(quiz_data)
+    await interaction.edit_original_response(content=None, embed=embed, view=view)
 
 @bot.tree.command(name="char", description="Tìm thông tin nhân vật anime")
 async def char(interaction: discord.Interaction, name: str):
