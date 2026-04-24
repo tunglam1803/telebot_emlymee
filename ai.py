@@ -53,20 +53,13 @@ Bạn là "Em Ly Mee" — một trợ lý cá nhân đa năng và thông minh. N
 
 ## Thông tin thời gian
 - Ngày hiện tại: {current_date}
-- Giờ hiện tại: {current_time} (giờ Việt Nam, GMT+7)
-- Mùa anime hiện tại: {current_season}
-{real_schedule}
-## GIỚI HẠN QUAN TRỌNG
-- Dữ liệu huấn luyện của bạn chỉ đến khoảng năm 2024. Bạn KHÔNG biết chính xác anime nào đang chiếu trong năm {now_vn.year}.
-- TUYỆT ĐỐI KHÔNG được bịa tên anime, mùa phim, hoặc thông tin phát sóng mà bạn không chắc chắn.
-- Nếu được hỏi về anime đang hot / mới nhất / đang chiếu → Hãy tham khảo "Lịch chiếu THẬT hôm nay" ở trên (nếu có), và hướng dẫn dùng lệnh /today để xem lịch chiếu đầy đủ.
-- Bạn CÓ THỂ tự tin nói về các anime đã phát sóng trước năm 2025 (ví dụ: gợi ý anime kinh điển, giải thích cốt truyện cũ...).
 
-## Phong cách trả lời
-- Xưng "tớ", gọi người dùng là "cậu"
-- Thân thiện, vui vẻ, dùng emoji vừa phải (1-3 emoji mỗi tin nhắn)
-- Trả lời NGẮN GỌN vì đây là Telegram, không phải bài viết blog. Tối đa 150 từ trừ khi cần liệt kê danh sách.
-- Dùng từ ngữ tự nhiên của giới trẻ Việt Nam (ví dụ: "cày phim", "hot", "gánh team", "hype")
+## Nguyên tắc trả lời
+- Luôn trả lời bằng Tiếng Việt
+- Giữ phong cách theo nhân cách (persona) được chỉ định
+- Trả lời ngắn gọn, súc tích nhưng đầy đủ ý
+- Nếu là về anime, hãy thể hiện sự đam mê
+- Nếu là về Arsenal, hãy thể hiện sự ủng hộ nhiệt thành
 - Giữ tên anime bằng tiếng Nhật/Anh gốc, KHÔNG dịch tên phim sang tiếng Việt
 
 ## Khả năng
@@ -79,14 +72,13 @@ Bạn là "Em Ly Mee" — một trợ lý cá nhân đa năng và thông minh. N
 ## Câu hỏi của người dùng
 {user_input}"""
         
-        response = model.generate_content(prompt)
+        response = await model.generate_content_async(prompt)
         return response.text
     except Exception as e:
-        error_msg = f"Lỗi Gemini: {str(e)}"
-        print(error_msg)
-        return f"Đã có lỗi xảy ra: {error_msg}"
+        print(f"Lỗi AI: {e}")
+        return "Hic, đầu tớ đang bị quá tải tí, bạn hỏi lại sau nhé!"
 
-def translate_batch(texts):
+async def translate_batch(texts):
     api_key = os.getenv("GEMINI_API_KEY")
     if not api_key or not texts:
         return texts
@@ -112,7 +104,7 @@ QUY TẮC:
 NỘI DUNG CẦN DỊCH:
 {combined_text}"""
         
-        response = model.generate_content(prompt)
+        response = await model.generate_content_async(prompt)
         
         # Parse kết quả theo số thứ tự
         result_text = response.text
@@ -135,7 +127,7 @@ NỘI DUNG CẦN DỊCH:
         print(f"Batch Translation Error: {e}")
         return texts
 
-def generate_quiz():
+async def generate_quiz():
     api_key = os.getenv("GEMINI_API_KEY")
     if not api_key:
         return None
@@ -164,7 +156,7 @@ Hãy trả về CHỈ MỘT cục JSON (không format code, không bọc ```json
     "explanation": "Giải thích ngắn gọn."
 }}"""
 
-        response = model.generate_content(
+        response = await model.generate_content_async(
             prompt,
             generation_config=genai.types.GenerationConfig(
                 temperature=1.0, # Tăng tối đa độ sáng tạo/ngẫu nhiên
@@ -181,5 +173,7 @@ Hãy trả về CHỈ MỘT cục JSON (không format code, không bọc ```json
         return None
 
 if __name__ == "__main__":
-    # Test if key is present
-    print(get_ai_response("Chào bạn!"))
+    import asyncio
+    async def test():
+        print(await get_ai_response("Chào bạn!"))
+    asyncio.run(test())

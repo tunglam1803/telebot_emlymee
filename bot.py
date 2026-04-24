@@ -86,7 +86,7 @@ async def gacha(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def quiz(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = await update.message.reply_text("🧠 Đang vắt óc nghĩ ra một câu đố anime siêu hóc búa cho bạn đây...")
-    quiz_data = generate_quiz()
+    quiz_data = await generate_quiz()
     
     if not quiz_data:
         await msg.edit_text("AI đang mệt, không nghĩ ra câu hỏi nào. Bạn thử lại sau nhé!")
@@ -113,7 +113,7 @@ async def char_search(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
         
     # Dịch thông tin nhân vật bằng AI
-    about_vn = get_ai_response(f"Hãy tóm tắt ngắn gọn (khoảng 100 từ) thông tin nhân vật này bằng tiếng Việt: {char['about']}")
+    about_vn = await get_ai_response(f"Hãy tóm tắt ngắn gọn (khoảng 100 từ) thông tin nhân vật này bằng tiếng Việt: {char['about']}")
     
     text = f"👤 <b>NHÂN VẬT: {char['name']}</b>\n\n{about_vn}\n\n🔗 <a href='{char['url']}'>Xem thêm trên MyAnimeList</a>"
     
@@ -219,7 +219,7 @@ async def today(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     # Gom các mô tả lại để dịch 1 lần
     english_synopses = [item.get('synopsis') or "No description." for item in today_list]
-    vietnamese_synopses = translate_batch(english_synopses)
+    vietnamese_synopses = await translate_batch(english_synopses)
     
     for i, item in enumerate(today_list):
         # Đảm bảo index không bị vượt quá nếu AI trả về thiếu kết quả
@@ -262,7 +262,7 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
         clean_text = message.text.replace(f"@{bot_username}", "").strip()
         
         if clean_text:
-            response = get_ai_response(clean_text, persona=persona_name)
+            response = await get_ai_response(clean_text, persona=persona_name)
             await update.message.reply_text(response)
 
 async def persona(update: Update, context: ContextTypes.DEFAULT_TYPE):

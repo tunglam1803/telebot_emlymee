@@ -152,7 +152,7 @@ async def today(interaction: discord.Interaction):
     
     today_list = schedule[:8]
     english_synopses = [item.get('synopsis') or "No description." for item in today_list]
-    vietnamese_synopses = translate_batch(english_synopses)
+    vietnamese_synopses = await translate_batch(english_synopses)
     
     # Xóa thông báo chờ
     await interaction.delete_original_response()
@@ -211,7 +211,7 @@ async def gacha(interaction: discord.Interaction):
 @bot.tree.command(name="quiz", description="Thử thách kiến thức Anime")
 async def quiz(interaction: discord.Interaction):
     await interaction.response.send_message("🧠 Đang vắt óc nghĩ ra một câu đố anime siêu hóc búa cho bạn đây...")
-    quiz_data = generate_quiz()
+    quiz_data = await generate_quiz()
     if not quiz_data:
         await interaction.edit_original_response(content="AI đang mệt, không nghĩ ra câu hỏi nào. Bạn thử lại sau nhé!")
         return
@@ -232,7 +232,7 @@ async def char(interaction: discord.Interaction, name: str):
         await interaction.edit_original_response(content="Hic, tớ không tìm thấy nhân vật nào tên này cả.")
         return
         
-    about_vn = get_ai_response(f"Hãy tóm tắt ngắn gọn (khoảng 100 từ) thông tin nhân vật này bằng tiếng Việt: {char_data['about']}")
+    about_vn = await get_ai_response(f"Hãy tóm tắt ngắn gọn (khoảng 100 từ) thông tin nhân vật này bằng tiếng Việt: {char_data['about']}")
     embed = Embed(
         title=f"👤 NHÂN VẬT: {char_data['name']}",
         description=f"{about_vn}\n\n🔗 [Xem thêm trên MyAnimeList]({char_data['url']})",
@@ -413,7 +413,7 @@ async def on_message(message):
         clean_content = message.content.replace(f'<@{bot.user.id}>', '').replace(f'<@!{bot.user.id}>', '').strip()
         
         if clean_content:
-            response = get_ai_response(clean_content, persona=persona_name)
+            response = await get_ai_response(clean_content, persona=persona_name)
             await message.channel.send(response)
 
 if __name__ == "__main__":

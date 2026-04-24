@@ -171,7 +171,7 @@ async def smart_concierge_task(application):
                 persona_name = get_user_persona(chat_id, platform)
                 
                 prompt = f"Hôm nay có tin tức gì mới về các chủ đề này không: {topics}? Đặc biệt lưu ý Arsenal nếu có bóng đá. Hãy tóm tắt ngắn gọn và thú vị."
-                briefing = get_ai_response(prompt, persona=persona_name)
+                briefing = await get_ai_response(prompt, persona=persona_name)
                 
                 text = f"☕ **BẢN TIN QUẢN GIA SÁNG NAY**\n\n{briefing}"
                 
