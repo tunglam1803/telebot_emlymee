@@ -403,12 +403,18 @@ async def on_message(message):
     # Process commands
     await bot.process_commands(message)
 
-    # AI Chat handler (Nếu không phải lệnh và không phải từ bot)
-    # Lưu ý: Slash commands không bắt đầu bằng ! nên sẽ không bị chặn ở đây
-    if not message.content.startswith('!'):
+    # AI Chat handler: Chỉ trả lời nếu được Mention hoặc nhắn tin riêng (DM)
+    is_dm = isinstance(message.channel, discord.DMChannel)
+    is_mentioned = bot.user.mentioned_in(message)
+    
+    if (is_dm or is_mentioned) and not message.content.startswith('!'):
         persona_name = get_user_persona(message.author.id, 'discord')
-        response = get_ai_response(message.content, persona=persona_name)
-        await message.channel.send(response)
+        # Loại bỏ phần mention trong tin nhắn để AI không bị nhầm lẫn
+        clean_content = message.content.replace(f'<@{bot.user.id}>', '').replace(f'<@!{bot.user.id}>', '').strip()
+        
+        if clean_content:
+            response = get_ai_response(clean_content, persona=persona_name)
+            await message.channel.send(response)
 
 if __name__ == "__main__":
     token = os.getenv("DISCORD_BOT_TOKEN")

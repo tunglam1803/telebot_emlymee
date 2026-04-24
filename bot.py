@@ -244,10 +244,26 @@ async def mylist(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
-    persona_name = get_user_persona(user_id, 'telegram')
-    text = update.message.text
-    response = get_ai_response(text, persona=persona_name)
-    await update.message.reply_text(response)
+    message = update.effective_message
+    chat_type = update.effective_chat.type
+    bot_username = (await context.bot.get_me()).username
+    
+    # Logic kiểm tra:
+    # 1. Chat riêng (private)
+    # 2. Được mention trong group (@bot_username)
+    # 3. Trả lời (reply) vào tin nhắn của bot
+    is_private = chat_type == 'private'
+    is_mentioned = message.text and f"@{bot_username}" in message.text
+    is_reply_to_bot = message.reply_to_message and message.reply_to_message.from_user.id == context.bot.id
+    
+    if is_private or is_mentioned or is_reply_to_bot:
+        persona_name = get_user_persona(user_id, 'telegram')
+        # Làm sạch nội dung (xóa username bot nếu có)
+        clean_text = message.text.replace(f"@{bot_username}", "").strip()
+        
+        if clean_text:
+            response = get_ai_response(clean_text, persona=persona_name)
+            await update.message.reply_text(response)
 
 async def persona(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
