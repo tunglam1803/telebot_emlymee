@@ -20,17 +20,52 @@ client = get_client()
 
 def search_web(query, max_results=3):
     try:
-        from duckduckgo_search import DDGS
-        with DDGS() as ddgs:
-            results = ddgs.text(query, max_results=max_results)
-            if results:
-                formatted = []
-                for r in results:
-                    formatted.append(f"Tiêu đề: {r.get('title')}\nNội dung: {r.get('body')}\nLink: {r.get('href')}")
-                return "\n## Kết quả tìm kiếm thực tế từ Internet (DuckDuckGo):\n" + "\n\n".join(formatted) + "\n"
+        import requests
+        import re
+        import urllib.parse
+        
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        }
+        url = f"https://html.duckduckgo.com/html/?q={urllib.parse.quote(query)}"
+        r = requests.get(url, headers=headers, timeout=8)
+        if r.status_code != 200:
+            return ""
+            
+        html = r.text
+        snippets = re.findall(r'<a class="result__snippet"[^>]*>(.*?)</a>', html, re.DOTALL)
+        links = re.findall(r'<a class="result__url"[^>]*href="([^"]+)"', html, re.DOTALL)
+        
+        if snippets:
+            formatted = []
+            count = 0
+            for i in range(len(snippets)):
+                link = links[i] if i < len(links) else ""
+                clean_link = link
+                if "uddg=" in link:
+                    try:
+                        parsed = urllib.parse.urlparse(link)
+                        queries = urllib.parse.parse_qs(parsed.query)
+                        if "uddg" in queries:
+                            clean_link = queries["uddg"][0]
+                    except:
+                        pass
+                
+                if "ad_provider" in link or "viagogo" in link or "ad_domain" in link:
+                    continue
+                    
+                clean_snippet = re.sub(r'<[^>]+>', '', snippets[i]).strip()
+                formatted.append(f"Thông tin: {clean_snippet}\nNguồn: {clean_link}")
+                count += 1
+                if count >= max_results:
+                    break
+                    
+            if formatted:
+                return "\n## Kết quả tìm kiếm thực tế từ Internet:\n" + "\n\n".join(formatted) + "\n"
     except Exception as e:
         print(f"Lỗi tìm kiếm web: {e}")
     return ""
+
 
 PERSONAS = {
 
@@ -75,6 +110,14 @@ async def get_ai_response(user_input, chat_history=None, persona='tsundere'):
         search_keywords = ["đá", "trận", "bóng", "thắng", "thua", "lịch", "kết quả", "báo", "tin tức", "weather", "thời tiết", "champions league", "c1", "ars", "arsenal", "real", "madrid", "mới nhất", "hôm nay", "ai", "là gì", "nào", "ở đâu"]
         if any(kw in user_input.lower() for kw in search_keywords) and len(user_input) > 3:
             web_context = search_web(user_input)
+            
+            # Nếu liên quan đến C1/Arsenal/Chung kết, bổ sung thêm tìm kiếm tiếng Anh chuẩn để có kết quả chính xác nhất từ báo chí quốc tế
+            lower_input = user_input.lower()
+            if any(kw in lower_input for kw in ["c1", "champions league", "arsenal", "real", "madrid", "chung kết", "bán kết"]):
+                eng_context = search_web("Arsenal Champions League final 2026", max_results=2)
+                if eng_context:
+                    web_context += "\n" + eng_context
+
 
         prompt = f"""## Vai trò
 {persona_prompt}
