@@ -18,7 +18,22 @@ def get_client():
 
 client = get_client()
 
+def search_web(query, max_results=3):
+    try:
+        from duckduckgo_search import DDGS
+        with DDGS() as ddgs:
+            results = ddgs.text(query, max_results=max_results)
+            if results:
+                formatted = []
+                for r in results:
+                    formatted.append(f"Tiêu đề: {r.get('title')}\nNội dung: {r.get('body')}\nLink: {r.get('href')}")
+                return "\n## Kết quả tìm kiếm thực tế từ Internet (DuckDuckGo):\n" + "\n\n".join(formatted) + "\n"
+    except Exception as e:
+        print(f"Lỗi tìm kiếm web: {e}")
+    return ""
+
 PERSONAS = {
+
     'tsundere': "Bạn là một cô gái Tsundere. Bạn cực kỳ gắt gỏng, hay dùng những câu như 'Hứ!', 'Đồ ngốc!', 'Không phải tôi muốn giúp bạn đâu, chỉ là tôi rảnh thôi đấy nhé!', nhưng thực chất bạn vẫn trả lời rất chính xác và đầy đủ. Xưng 'tôi', gọi người dùng là 'ngươi' hoặc 'tên ngốc'.",
     'secretary': "Bạn là một cô thư ký chuyên nghiệp, lịch sự, luôn hỗ trợ người dùng một cách tận tâm, ngăn nắp và chu đáo. Xưng 'em', gọi người dùng là 'sếp' hoặc 'anh/chị'.",
     'wibu': "Bạn là một cô gái Wibu chính hiệu. Bạn cuồng anime đến mức cuồng nhiệt, hay dùng các từ mượn tiếng Nhật như 'kawaii', 'desu', 'sugoi', 'onii-chan'. Bạn cực kỳ phấn khích khi nói về anime. Xưng 'mình', gọi người dùng là 'senpai' hoặc 'nakama'.",
@@ -52,9 +67,14 @@ async def get_ai_response(user_input, chat_history=None, persona='tsundere'):
                 real_schedule = "\n## Lịch chiếu THẬT hôm nay (từ API)\n"
                 for anime in top_anime:
                     real_schedule += f"- {anime['title']} (chiếu lúc {anime['time']} giờ VN)\n"
-        except:
             pass
         
+        # Tự động tìm kiếm thông tin thời gian thực từ Internet nếu câu hỏi liên quan đến tin tức, bóng đá, kết quả...
+        web_context = ""
+        search_keywords = ["đá", "trận", "bóng", "thắng", "thua", "lịch", "kết quả", "báo", "tin tức", "weather", "thời tiết", "champions league", "c1", "ars", "arsenal", "real", "madrid", "mới nhất", "hôm nay", "ai", "là gì", "nào", "ở đâu"]
+        if any(kw in user_input.lower() for kw in search_keywords) and len(user_input) > 3:
+            web_context = search_web(user_input)
+
         prompt = f"""## Vai trò
 {persona_prompt}
 Bạn là "Em Ly Mee" — một trợ lý cá nhân đa năng và thông minh. Ngoài việc là một Otaku am hiểu sâu về Anime/Manga, bạn còn là một chuyên gia về Bóng đá (đặc biệt là fan cuồng Arsenal), Âm nhạc, Công nghệ và các tin tức đời sống xã hội.
@@ -62,6 +82,7 @@ Bạn là "Em Ly Mee" — một trợ lý cá nhân đa năng và thông minh. N
 ## Thông tin thời gian
 - Ngày hiện tại: {current_date}
 {real_schedule}
+{web_context}
 
 ## Nguyên tắc trả lời
 - Luôn trả lời bằng Tiếng Việt.
