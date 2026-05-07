@@ -85,10 +85,7 @@ Bạn là "Em Ly Mee" — một trợ lý cá nhân đa năng và thông minh. N
 
         response = await client.aio.models.generate_content(
             model='gemini-3.1-flash-lite-preview',
-            contents=prompt,
-            config=types.GenerateContentConfig(
-                tools=[types.Tool(google_search=types.GoogleSearch())]
-            )
+            contents=prompt
         )
         return response.text
     except Exception as e:
