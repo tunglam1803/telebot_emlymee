@@ -84,7 +84,7 @@ Bạn là "Em Ly Mee" — một trợ lý cá nhân đa năng và thông minh. N
 {user_input}"""
 
         response = await client.aio.models.generate_content(
-            model='gemini-2.0-flash',
+            model='gemini-3.1-flash-lite-preview',
             contents=prompt,
             config=types.GenerateContentConfig(
                 tools=[types.Tool(google_search=types.GoogleSearch())]
@@ -126,7 +126,7 @@ NỘI DUNG CẦN DỊCH:
 {combined_text}"""
         
         response = await client.aio.models.generate_content(
-            model='gemini-2.0-flash',
+            model='gemini-3.1-flash-lite-preview',
             contents=prompt
         )
         
@@ -180,7 +180,7 @@ Hãy trả về CHỈ MỘT cục JSON (không format code, không bọc ```json
 }}"""
 
         response = await client.aio.models.generate_content(
-            model='gemini-2.0-flash',
+            model='gemini-3.1-flash-lite-preview',
             contents=prompt,
             config=types.GenerateContentConfig(
                 temperature=1.0,
