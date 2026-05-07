@@ -90,6 +90,10 @@ Bạn là "Em Ly Mee" — một trợ lý cá nhân đa năng và thông minh. N
     except Exception as e:
         print(f"Lỗi AI chi tiết:")
         traceback.print_exc()
+        if "User location is not supported" in str(e):
+            return "⚠️ **Lỗi Khu Vực Máy Chủ (Render Region Error):**\n\n" \
+                   "Máy chủ Render của bạn hiện đang chạy ở khu vực không được Google Gemini hỗ trợ (ví dụ: Frankfurt/Châu Âu hoặc Singapore).\n\n" \
+                   "💡 **Cách sửa dứt điểm:** Sếp vui lòng vào trang quản lý Render, xóa dịch vụ này đi và tạo lại dịch vụ mới, chọn khu vực **Oregon (US West)** hoặc **Ohio (US East)** ở Mỹ là sẽ hoạt động mượt mà 100% ngay lập tức ạ!"
         return "Hic, đầu tớ đang bị quá tải tí, bạn hỏi lại sau nhé!"
 
 async def translate_batch(texts):
