@@ -67,6 +67,7 @@ async def get_ai_response(user_input, chat_history=None, persona='tsundere'):
                 real_schedule = "\n## Lịch chiếu THẬT hôm nay (từ API)\n"
                 for anime in top_anime:
                     real_schedule += f"- {anime['title']} (chiếu lúc {anime['time']} giờ VN)\n"
+        except Exception:
             pass
         
         # Tự động tìm kiếm thông tin thời gian thực từ Internet nếu câu hỏi liên quan đến tin tức, bóng đá, kết quả...
