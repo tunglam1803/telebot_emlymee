@@ -61,6 +61,7 @@ Bạn là "Em Ly Mee" — một trợ lý cá nhân đa năng và thông minh. N
 
 ## Thông tin thời gian
 - Ngày hiện tại: {current_date}
+{real_schedule}
 
 ## Nguyên tắc trả lời
 - Luôn trả lời bằng Tiếng Việt.
