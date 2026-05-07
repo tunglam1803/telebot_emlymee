@@ -21,50 +21,76 @@ client = get_client()
 def search_web(query, max_results=3):
     try:
         import requests
+        import urllib.parse
+        import xml.etree.ElementTree as ET
+        
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        }
+        # Thử tìm kiếm tin tức qua Google News RSS trước vì cực kỳ ổn định, không chặn IP server cloud
+        url = f"https://news.google.com/rss/search?q={urllib.parse.quote(query)}&hl=en-US&gl=US&ceid=US:en"
+        r = requests.get(url, headers=headers, timeout=8)
+        if r.status_code == 200:
+            xml_data = r.text
+            root = ET.fromstring(xml_data)
+            items = root.findall('.//item')
+            if items:
+                formatted = []
+                for item in items[:max_results]:
+                    title = item.find('title').text if item.find('title') is not None else ""
+                    link = item.find('link').text if item.find('link') is not None else ""
+                    formatted.append(f"Tin tức: {title}\nNguồn: {link}")
+                if formatted:
+                    return "\n## Tin tức thực tế từ Internet (Google News):\n" + "\n\n".join(formatted) + "\n"
+    except Exception as e:
+        print(f"Lỗi tìm kiếm Google News: {e}")
+
+    try:
+        import requests
         import re
         import urllib.parse
         
         headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
         }
+        # Fallback về DuckDuckGo cào dữ liệu raw nếu Google News lỗi
         url = f"https://html.duckduckgo.com/html/?q={urllib.parse.quote(query)}"
         r = requests.get(url, headers=headers, timeout=8)
-        if r.status_code != 200:
-            return ""
+        if r.status_code == 200:
+            html = r.text
+            snippets = re.findall(r'<a class="result__snippet"[^>]*>(.*?)</a>', html, re.DOTALL)
+            links = re.findall(r'<a class="result__url"[^>]*href="([^"]+)"', html, re.DOTALL)
             
-        html = r.text
-        snippets = re.findall(r'<a class="result__snippet"[^>]*>(.*?)</a>', html, re.DOTALL)
-        links = re.findall(r'<a class="result__url"[^>]*href="([^"]+)"', html, re.DOTALL)
-        
-        if snippets:
-            formatted = []
-            count = 0
-            for i in range(len(snippets)):
-                link = links[i] if i < len(links) else ""
-                clean_link = link
-                if "uddg=" in link:
-                    try:
-                        parsed = urllib.parse.urlparse(link)
-                        queries = urllib.parse.parse_qs(parsed.query)
-                        if "uddg" in queries:
-                            clean_link = queries["uddg"][0]
-                    except:
-                        pass
-                
-                if "ad_provider" in link or "viagogo" in link or "ad_domain" in link:
-                    continue
+            if snippets:
+                formatted = []
+                count = 0
+                for i in range(len(snippets)):
+                    link = links[i] if i < len(links) else ""
+                    clean_link = link
+                    if "uddg=" in link:
+                        try:
+                            parsed = urllib.parse.urlparse(link)
+                            queries = urllib.parse.parse_qs(parsed.query)
+                            if "uddg" in queries:
+                                clean_link = queries["uddg"][0]
+                        except:
+                            pass
                     
-                clean_snippet = re.sub(r'<[^>]+>', '', snippets[i]).strip()
-                formatted.append(f"Thông tin: {clean_snippet}\nNguồn: {clean_link}")
-                count += 1
-                if count >= max_results:
-                    break
-                    
-            if formatted:
-                return "\n## Kết quả tìm kiếm thực tế từ Internet:\n" + "\n\n".join(formatted) + "\n"
+                    if "ad_provider" in link or "viagogo" in link or "ad_domain" in link:
+                        continue
+                        
+                    clean_snippet = re.sub(r'<[^>]+>', '', snippets[i]).strip()
+                    formatted.append(f"Thông tin: {clean_snippet}\nNguồn: {clean_link}")
+                    count += 1
+                    if count >= max_results:
+                        break
+                        
+                if formatted:
+                    return "\n## Kết quả tìm kiếm thực tế từ Internet:\n" + "\n\n".join(formatted) + "\n"
     except Exception as e:
-        print(f"Lỗi tìm kiếm web: {e}")
+        print(f"Lỗi tìm kiếm DuckDuckGo: {e}")
     return ""
+
 
 
 PERSONAS = {
