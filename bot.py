@@ -137,17 +137,21 @@ async def top_anime(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(text, parse_mode='HTML')
 
 async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    photo_file = await update.message.photo[-1].get_file()
-    image_url = photo_file.file_path
-    
-    msg = await update.message.reply_text("🔍 Đang truy tìm dấu vết bộ anime này qua ảnh... Chờ tớ xíu!")
+    msg = await update.message.reply_text("🔍 Đang tải ảnh và truy tìm dấu vết bộ anime này... Chờ tớ xíu!")
     
     try:
         import requests
         import re
         
-        # Gọi API trace.moe với anilistInfo=true để lấy tên phim tiếng Anh/Romaji siêu sạch
-        response = requests.get(f"https://api.trace.moe/search?anilistInfo=true&url={image_url}")
+        # Tải file ảnh dưới dạng bytes trực tiếp từ Telegram về RAM
+        photo_file = await update.message.photo[-1].get_file()
+        file_bytes = await photo_file.download_as_bytearray()
+        
+        # Gửi file ảnh dạng bytes thẳng tới trace.moe để nhận diện bất tử, không lo Telegram chặn hay lỗi đường truyền
+        response = requests.post(
+            "https://api.trace.moe/search?anilistInfo=true",
+            files={"image": bytes(file_bytes)}
+        )
         data = response.json()
         
         if not data.get('result'):
