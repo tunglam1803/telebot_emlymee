@@ -143,8 +143,11 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = await update.message.reply_text("🔍 Đang truy tìm dấu vết bộ anime này qua ảnh... Chờ tớ xíu!")
     
     try:
-        # Gọi API trace.moe
-        response = requests.get(f"https://api.trace.moe/search?url={image_url}")
+        import requests
+        import re
+        
+        # Gọi API trace.moe với anilistInfo=true để lấy tên phim tiếng Anh/Romaji siêu sạch
+        response = requests.get(f"https://api.trace.moe/search?anilistInfo=true&url={image_url}")
         data = response.json()
         
         if not data.get('result'):
@@ -152,25 +155,35 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
             
         result = data['result'][0]
-        # Trace.moe trả về anilist ID và filename, nhưng thường filename chứa tên phim
-        # Ở đây ta lấy tên từ result['filename'] hoặc result['anilist']
-        # Để đơn giản và chính xác, ta hiển thị kết quả đầu tiên
         episode = result.get('episode')
-        similarity = result.get('similarity')
+        similarity = result.get('similarity', 0)
         
-        if similarity < 0.8:
+        # Hạ ngưỡng xuống 0.70 và thêm thông báo mềm dẻo để hỗ trợ ảnh crop/nén từ điện thoại
+        if similarity < 0.70:
             await msg.edit_text("Ảnh này mờ quá hoặc không phải anime rồi, tớ không chắc chắn lắm!")
             return
+            
+        # Lấy tên anime sạch từ field anilist
+        title = "Unknown Anime"
+        anilist = result.get('anilist')
+        if isinstance(anilist, dict):
+            title_obj = anilist.get('title', {})
+            title = title_obj.get('english') or title_obj.get('romaji') or title_obj.get('native') or title
+            
+        if title == "Unknown Anime":
+            raw_filename = result.get('filename', '')
+            # Làm sạch filename thô nếu không lấy được từ anilist
+            title = re.sub(r'\[.*?\]|\(.*?\)', '', raw_filename).split('.')[0].strip() or raw_filename
 
-        # Lấy tên phim từ field anilist (thường là object nếu dùng query, nhưng trace.moe v2 trả về ID)
-        # Ta sẽ dùng title_romaji nếu có
-        title = result.get('filename', 'Unknown Anime')
-        
+        accuracy_note = ""
+        if similarity < 0.80:
+            accuracy_note = " ⚠️ <i>(Độ chính xác tương đối do ảnh bị crop hoặc nén, sếp check lại thử nhé!)</i>"
+            
         res_text = (
             f"✅ <b>TÌM THẤY RỒI!</b>\n\n"
             f"📌 Phim: <b>{title}</b>\n"
             f"📺 Tập: {episode}\n"
-            f"🎯 Độ chính xác: {similarity*100:.1f}%\n\n"
+            f"🎯 Độ chính xác: {similarity*100:.1f}%{accuracy_note}\n\n"
             f"<i>Mẹo: Bạn có thể copy tên phim và dùng lệnh /search để đăng ký theo dõi nhé!</i>"
         )
         await msg.edit_text(res_text, parse_mode='HTML')
